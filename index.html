@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login & Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="auth-body index-bg">
+    <div class="banner-wrap">
+        <div class="banner-marquee">PARKING KOLEJ VOKASIONAL PASIR MAS • PARKING KOLEJ VOKASIONAL PASIR MAS • PARKING KOLEJ VOKASIONAL PASIR MAS •</div>
+    </div>
+    <div class="auth-layout">
+        <div class="auth-hero">
+            <p class="eyebrow">Portal</p>
+            <h1>Admin Dashboard</h1>
+            <p class="lede">Akses masuk untuk pantau zona dan garaj.</p>
+            <div class="pill">Demo: admin / 1234 · user / 1234</div>
+        </div>
+
+        <div class="auth-card">
+            <div class="admin-actions" style="justify-content:flex-end; margin-bottom:6px;">
+                <a class="ghost-btn" href="penyewa.html">Portal Penyewa (IC)</a>
+            </div>
+            <form id="login-form" class="login-form">
+                <h2>Masuk</h2>
+                <div class="field">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" placeholder="admin" autocomplete="username" required>
+                </div>
+                <div class="field">
+                    <label for="password">Kata Laluan</label>
+                    <input type="password" id="password" name="password" placeholder="••••" autocomplete="current-password" required>
+                </div>
+                <div class="alert" id="alert"></div>
+                <button type="submit" class="primary-btn">Login</button>
+            </form>
+
+            <section id="admin-panel" class="admin-panel hidden">
+                <header class="panel-head">
+                    <div class="user-meta">
+                        <div>
+                            <p class="eyebrow">Selamat datang</p>
+                            <h2 id="user-name">Administrator</h2>
+                        </div>
+                        <span id="role-badge" class="pill-soft ok">Admin</span>
+                    </div>
+                    <div class="admin-actions">
+                        <button id="open-admin-btn" type="button" class="ghost-btn">Buka Dashboard</button>
+                        <button id="logout-btn" type="button" class="ghost-btn">Keluar</button>
+                    </div>
+                </header>
+
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <p class="label">Total Zona</p>
+                        <p class="value" id="stat-zona">-</p>
+                        <p class="hint">Aktif</p>
+                    </div>
+                    <div class="stat-card">
+                        <p class="label">Garaj</p>
+                        <p class="value" id="stat-garaj">-</p>
+                        <p class="hint">Bilangan semasa</p>
+                    </div>
+                    <div class="stat-card">
+                        <p class="label">Terpakai</p>
+                        <p class="value accent" id="stat-terpakai">-</p>
+                        <p class="hint">&nbsp;</p>
+                    </div>
+                    <div class="stat-card">
+                        <p class="label">Kosong</p>
+                        <p class="value" id="stat-kosong">-</p>
+                        <p class="hint">&nbsp;</p>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-head">
+                        <p>Zona & Garaj</p>
+                        <span class="hint">&nbsp;</span>
+                    </div>
+                    <div class="list" id="snapshot-list"></div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('login-form');
+        const alertBox = document.getElementById('alert');
+        const adminPanel = document.getElementById('admin-panel');
+        const logoutBtn = document.getElementById('logout-btn');
+        const openAdminBtn = document.getElementById('open-admin-btn');
+        const userNameEl = document.getElementById('user-name');
+        const roleBadge = document.getElementById('role-badge');
+        const statZona = document.getElementById('stat-zona');
+        const statGaraj = document.getElementById('stat-garaj');
+        const statTerpakai = document.getElementById('stat-terpakai');
+        const statKosong = document.getElementById('stat-kosong');
+        const snapshotList = document.getElementById('snapshot-list');
+
+        const ACCOUNTS = {
+            admin: { password: '1234', name: 'Administrator', role: 'Admin' },
+            user: { password: '1234', name: 'Pengguna', role: 'User' }
+        };
+        const STORAGE_KEY = 'garage-demo-session';
+        const DATA_KEY = 'garage-data';
+
+        function showError(msg) {
+            alertBox.textContent = msg;
+            alertBox.classList.add('visible');
+        }
+
+        function clearError() {
+            alertBox.textContent = '';
+            alertBox.classList.remove('visible');
+        }
+
+        function persistSession(username) {
+            localStorage.setItem(STORAGE_KEY, username);
+        }
+
+        function clearSession() {
+            localStorage.removeItem(STORAGE_KEY);
+        }
+
+        function goToUserPage() {
+            window.location.href = 'user.html';
+        }
+
+        function goToAdminPage() {
+            window.location.href = 'admin.html';
+        }
+
+        function computeStats(data) {
+            let zona = data.length;
+            let garaj = 0;
+            let terpakai = 0;
+            let kosong = 0;
+            data.forEach(z => {
+                (z.garaj || []).forEach(g => {
+                    garaj += 1;
+                    const occupied = (g.kereta || 0) > 0 || (g.guru && g.guru !== '-');
+                    if (occupied) terpakai += 1;
+                    else kosong += 1;
+                });
+            });
+            return { zona, garaj, terpakai, kosong };
+        }
+
+        function renderStatsFromData(data) {
+            const stats = computeStats(data);
+            if (statZona) statZona.textContent = stats.zona;
+            if (statGaraj) statGaraj.textContent = stats.garaj;
+            if (statTerpakai) statTerpakai.textContent = stats.terpakai;
+            if (statKosong) statKosong.textContent = stats.kosong;
+        }
+
+        function renderSnapshot(data) {
+            if (!snapshotList) return;
+            snapshotList.innerHTML = '';
+            if (!data.length) {
+                const empty = document.createElement('div');
+                empty.className = 'muted';
+                empty.textContent = 'Tiada data garaj. Sila set di admin.';
+                snapshotList.appendChild(empty);
+                return;
+            }
+            data.forEach((z, idx) => {
+                const used = (z.garaj || []).filter(g => (g.kereta || 0) > 0 || (g.guru && g.guru !== '-')).length;
+                const row = document.createElement('div');
+                row.className = 'row';
+                const badge = document.createElement('span');
+                badge.className = 'badge';
+                badge.textContent = `Zone ${idx + 1}`;
+                const muted = document.createElement('span');
+                muted.className = 'muted';
+                muted.textContent = `Terpakai: ${used} / ${(z.garaj || []).length}`;
+                const pill = document.createElement('span');
+                pill.className = 'pill-soft ' + (used >= (z.garaj || []).length * 0.7 ? 'warn' : 'ok');
+                pill.textContent = used >= (z.garaj || []).length * 0.7 ? 'Padat' : 'Stabil';
+                row.appendChild(badge);
+                row.appendChild(muted);
+                row.appendChild(pill);
+                snapshotList.appendChild(row);
+            });
+        }
+
+        function applySession(username, options = {}) {
+            const { redirect = false } = options;
+            const account = ACCOUNTS[username];
+            if (!account) return;
+            userNameEl.textContent = account.name;
+            roleBadge.textContent = account.role;
+            roleBadge.classList.toggle('ok', account.role === 'Admin');
+            roleBadge.classList.toggle('warn', account.role !== 'Admin');
+            loginForm.classList.add('hidden');
+            adminPanel.classList.remove('hidden');
+            hydrateStats();
+            if (redirect) {
+                if (account.role === 'Admin') {
+                    goToAdminPage();
+                } else {
+                    goToUserPage();
+                }
+            }
+        }
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            clearError();
+            const username = loginForm.username.value.trim();
+            const password = loginForm.password.value.trim();
+
+            const account = ACCOUNTS[username];
+            if (account && password === account.password) {
+                applySession(username, { redirect: true });
+                persistSession(username);
+            } else {
+                showError('Login gagal. Cuba admin / 1234 atau user / 1234.');
+            }
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            adminPanel.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+            loginForm.reset();
+            clearError();
+            clearSession();
+        });
+
+        openAdminBtn.addEventListener('click', () => {
+            goToAdminPage();
+        });
+
+        // Auto-login if session exists (no redirect to avoid surprise)
+        const savedUser = localStorage.getItem(STORAGE_KEY);
+        if (savedUser && ACCOUNTS[savedUser]) {
+            applySession(savedUser, { redirect: false });
+        }
+
+        function hydrateStats() {
+            try {
+                const raw = localStorage.getItem(DATA_KEY);
+                if (!raw) return;
+                const parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed)) return;
+                renderStatsFromData(parsed);
+                renderSnapshot(parsed);
+            } catch (e) {
+                console.warn('Gagal baca data garaj', e);
+            }
+        }
+
+        hydrateStats();
+    </script>
+    <div class="banner-wrap bottom">
+        <div class="banner-marquee alt">CREATED BY DYNOZ. • CREATED BY DYNOZ. • CREATED BY DYNOZ. • CREATED BY DYNOZ.</div>
+    </div>
+</body>
+</html>

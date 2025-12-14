@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Senarai Tunggak</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="auth-body">
+    <div class="page admin-page">
+        <header class="admin-header">
+            <div>
+                <p class="eyebrow">Admin</p>
+                <h1>Senarai Tunggak</h1>
+                <p class="lede">Nama penyewa dengan status bayaran tertunggak.</p>
+            </div>
+            <div class="admin-controls">
+                <a class="ghost-btn" href="admin.html">Kembali ke Dashboard</a>
+                <button id="logout" class="ghost-btn" type="button">Keluar</button>
+            </div>
+        </header>
+
+        <section class="panel-card">
+            <div class="table-head">
+                <p>Carian</p>
+                <span class="hint">Cari nama atau IC</span>
+            </div>
+            <div class="login-form" style="margin-top:8px;">
+                <div class="field">
+                    <label for="search-input">Cari</label>
+                    <input type="search" id="search-input" placeholder="Taip nama atau IC">
+                </div>
+            </div>
+        </section>
+
+        <section class="panel-card" style="margin-top:12px;">
+            <div class="table-head">
+                <p>Senarai Tunggak</p>
+                <span class="hint" id="count-label">0 rekod</span>
+            </div>
+            <div class="list" id="tunggak-list"></div>
+        </section>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'garage-demo-session';
+        const TENANT_KEY = 'tenant-data';
+
+        const sessionUser = localStorage.getItem(STORAGE_KEY);
+        if (!sessionUser) {
+            window.location.href = 'login-admin.html';
+        }
+
+        const searchInput = document.getElementById('search-input');
+        const listEl = document.getElementById('tunggak-list');
+        const countLabel = document.getElementById('count-label');
+
+        const tenantBase = [
+            ['ASMADI BIN HUSSIN','690103036761'],
+            ['FATMA NUR LIYANA BINTI ALLUWI','911110036192'],
+            ['HASNIAH BINTI MOHAMED','700311035196'],
+            ['KAMARIAH BINTI KAMAROLZAMAN','710714035296'],
+            ['KAMARUL BAKRI BIN ABDULLAH','701027035169'],
+            ['MAHANI BINTI MOHAMAD','780101038164'],
+            ['MAHASHIM BIN BAKAR','661014035289'],
+            ['MD KHAIRULLIZAM BIN CHE IDERIS','860803235277'],
+            ['MOHD KHAIRILLAH BIN IBRAHIM (KJ)','680830035037'],
+            ['MOHD RIDUAN BIN KAMARUDDIN','760315035059'],
+            ['MOHD SOBRI BIN ZAKARIA','710624035559'],
+            ['MOHD ZAIN BIN YAACOB','730706035243'],
+            ['NAZERI BIN MUHAMAD','740202035011'],
+            ['NOOR AISYAH BINTI MUDA','740622115384'],
+            ['NOORHADIANI BINTI CHE SU','800711035644'],
+            ['NORAZIAN BINTI MAT DAUD','731101035026'],
+            ['NORFADHILLAH  BINTI MOHAMAD','800714035818'],
+            ['NORFAIZATU AKEMA BINTI ZAKARIA','900710035018'],
+            ['NORHAYATI BINTI OMAR','770602037056'],
+            ['NORIYAH BINTI DOLLAH @ ABDULLAH','720926035342'],
+            ['NUR WAHIDA AMALIN BINTI MOHD RAFI','910611035396'],
+            ['NURHASYYATI BINTI ZAHRI','920526035956'],
+            ['NURUL AIDA BINTI REDZUWAN','811221035098'],
+            ['NURUL FADZIHA BINTI AHMAD','801123035298'],
+            ['ROHAFZAN BINTI MUHAMMAD ','760318035038'],
+            ['ROHANA BINTI ABDUL RAHIM','661207035250'],
+            ['ROS ADURA BINTI KAMARUDDIN','740522035168'],
+            ['ROSMA BINTI ZAINUDEEN','771120045664'],
+            ['ROSMAN BIN ABDUL KADIR','760904035137'],
+            ['RUSYDA PEK BINTI ABDULLAH @ PEK WEE ENG','700908105388'],
+            ['SALWANI BINTI ABDULLAZIZ','790104035902'],
+            ['SHAHRI LAILA BINTI MOHD NOR','840630035964'],
+            ['SHARIFAH BINTI HUSSIN','710815035586'],
+            ['SITI ZURAINI BINTI ZAKARIA','870831035562']
+        ];
+
+        function loadTenants() {
+            const raw = localStorage.getItem(TENANT_KEY);
+            if (!raw) {
+                const seeded = tenantBase.map(t => ({
+                    name: t[0],
+                    ic: t[1],
+                    garaj: '',
+                    kereta: 0,
+                    plat: [],
+                    baki: 0,
+                    status: 'Lunas'
+                }));
+                localStorage.setItem(TENANT_KEY, JSON.stringify(seeded));
+                return seeded;
+            }
+            try {
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function renderList(filter = '') {
+            const tenants = loadTenants();
+            const term = filter.toLowerCase();
+            const tunggak = tenants.filter(t => {
+                const status = (t.status || '').toLowerCase();
+                const baki = Number(t.baki) || 0;
+                const isTunggak = status === 'tunggak' || baki > 0;
+                const match = !term || (t.name || '').toLowerCase().includes(term) || (t.ic || '').includes(term);
+                return isTunggak && match;
+            });
+            listEl.innerHTML = '';
+            countLabel.textContent = `${tunggak.length} rekod`;
+            if (!tunggak.length) {
+                const empty = document.createElement('div');
+                empty.className = 'muted';
+                empty.textContent = 'Tiada rekod tertunggak.';
+                listEl.appendChild(empty);
+                return;
+            }
+            tunggak.forEach(t => {
+                const row = document.createElement('div');
+                row.className = 'row between';
+                const left = document.createElement('div');
+                const title = document.createElement('p');
+                title.className = 'label';
+                title.textContent = t.name || '-';
+                const meta = document.createElement('p');
+                meta.className = 'muted';
+                meta.textContent = `${t.ic || '-'} · ${t.garaj || 'Tiada garaj'}`;
+                left.appendChild(title);
+                left.appendChild(meta);
+                const badge = document.createElement('span');
+                badge.className = 'chip warn';
+                const baki = Number(t.baki) || 0;
+                badge.textContent = baki > 0 ? `Baki: RM ${baki}` : (t.status || 'Tunggak');
+                row.appendChild(left);
+                row.appendChild(badge);
+                listEl.appendChild(row);
+            });
+        }
+
+        renderList();
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => renderList(searchInput.value));
+        }
+
+        const logoutBtn = document.getElementById('logout');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                localStorage.removeItem(STORAGE_KEY);
+                window.location.href = 'index.html';
+            });
+        }
+    </script>
+</body>
+</html>

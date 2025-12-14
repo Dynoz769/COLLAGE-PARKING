@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daftar Guru Baharu</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="auth-body">
+    <div class="banner-wrap">
+        <div class="banner-marquee">PARKING KOLEJ VOKASIONAL PASIR MAS • PARKING KOLEJ VOKASIONAL PASIR MAS • PARKING KOLEJ VOKASIONAL PASIR MAS •</div>
+    </div>
+    <div class="auth-layout">
+        <div class="auth-hero">
+            <p class="eyebrow">Admin</p>
+            <h1>Daftar Guru Baharu</h1>
+            <p class="lede">Tambah pengguna penyewa baharu dengan nama dan IC. Data akan ditambah ke senarai penyewa.</p>
+        </div>
+
+        <div class="auth-card">
+            <div class="admin-actions" style="justify-content:flex-end; margin-bottom:6px;">
+                <a class="ghost-btn" href="admin.html">Kembali ke Admin</a>
+            </div>
+            <form id="daftar-form" class="login-form">
+                <div class="field">
+                    <label for="nama">Nama</label>
+                    <input type="text" id="nama" name="nama" required placeholder="Nama penuh">
+                </div>
+                <div class="field">
+                    <label for="ic">IC</label>
+                    <input type="text" id="ic" name="ic" required placeholder="cth: 690103036761" autocomplete="off">
+                </div>
+                <div class="alert" id="msg"></div>
+                <button type="submit" class="primary-btn">Simpan</button>
+            </form>
+        </div>
+    </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBwFhbL0lbYcIdejcYHvGR5ZWTZtwH9WaU",
+        authDomain: "collage-parking.firebaseapp.com",
+        projectId: "collage-parking",
+        storageBucket: "collage-parking.firebasestorage.app",
+        messagingSenderId: "948017323214",
+        appId: "1:948017323214:web:30555ce9fddae45593849f",
+        measurementId: "G-R82NJ57P3T",
+        databaseURL: "https://collage-parking-default-rtdb.asia-southeast1.firebasedatabase.app/"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+        const STORAGE_KEY = 'garage-demo-session';
+    const TENANT_KEY = 'tenant-data';
+
+        // simple guard: mesti ada sesi admin
+        const sessionUser = localStorage.getItem(STORAGE_KEY);
+        if (!sessionUser) {
+            window.location.href = 'index.html';
+        }
+
+        const tenantBase = [
+            ['ASMADI BIN HUSSIN','690103036761'],
+            ['FATMA NUR LIYANA BINTI ALLUWI','911110036192'],
+            ['HASNIAH BINTI MOHAMED','700311035196'],
+            ['KAMARIAH BINTI KAMAROLZAMAN','710714035296'],
+            ['KAMARUL BAKRI BIN ABDULLAH','701027035169'],
+            ['MAHANI BINTI MOHAMAD','780101038164'],
+            ['MAHASHIM BIN BAKAR','661014035289'],
+            ['MD KHAIRULLIZAM BIN CHE IDERIS','860803235277'],
+            ['MOHD KHAIRILLAH BIN IBRAHIM (KJ)','680830035037'],
+            ['MOHD RIDUAN BIN KAMARUDDIN','760315035059'],
+            ['MOHD SOBRI BIN ZAKARIA','710624035559'],
+            ['MOHD ZAIN BIN YAACOB','730706035243'],
+            ['NAZERI BIN MUHAMAD','740202035011'],
+            ['NOOR AISYAH BINTI MUDA','740622115384'],
+            ['NOORHADIANI BINTI CHE SU','800711035644'],
+            ['NORAZIAN BINTI MAT DAUD','731101035026'],
+            ['NORFADHILLAH  BINTI MOHAMAD','800714035818'],
+            ['NORFAIZATU AKEMA BINTI ZAKARIA','900710035018'],
+            ['NORHAYATI BINTI OMAR','770602037056'],
+            ['NORIYAH BINTI DOLLAH @ ABDULLAH','720926035342'],
+            ['NUR WAHIDA AMALIN BINTI MOHD RAFI','910611035396'],
+            ['NURHASYYATI BINTI ZAHRI','920526035956'],
+            ['NURUL AIDA BINTI REDZUWAN','811221035098'],
+            ['NURUL FADZIHA BINTI AHMAD','801123035298'],
+            ['ROHAFZAN BINTI MUHAMMAD ','760318035038'],
+            ['ROHANA BINTI ABDUL RAHIM','661207035250'],
+            ['ROS ADURA BINTI KAMARUDDIN','740522035168'],
+            ['ROSMA BINTI ZAINUDEEN','771120045664'],
+            ['ROSMAN BIN ABDUL KADIR','760904035137'],
+            ['RUSYDA PEK BINTI ABDULLAH @ PEK WEE ENG','700908105388'],
+            ['SALWANI BINTI ABDULLAZIZ','790104035902'],
+            ['SHAHRI LAILA BINTI MOHD NOR','840630035964'],
+            ['SHARIFAH BINTI HUSSIN','710815035586'],
+            ['SITI ZURAINI BINTI ZAKARIA','870831035562']
+        ];
+
+        async function fetchRTDB(path) {
+            const snap = await get(ref(db, path));
+            return snap.exists() ? snap.val() : null;
+        }
+
+        function loadTenantData() {
+            const raw = localStorage.getItem(TENANT_KEY);
+            if (!raw) {
+                const seeded = tenantBase.map(t => ({
+                    name: t[0],
+                    ic: t[1],
+                    garaj: '',
+                    kereta: 0,
+                    plat: [],
+                    baki: 0,
+                    status: 'Lunas'
+                }));
+                localStorage.setItem(TENANT_KEY, JSON.stringify(seeded));
+                return seeded;
+            }
+            try {
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveTenantData(list) {
+            localStorage.setItem(TENANT_KEY, JSON.stringify(list));
+            set(ref(db, 'tenants'), list).catch(err => console.warn('RTDB tenants save failed', err));
+        }
+
+        async function syncTenants() {
+            try {
+                const remote = await fetchRTDB('tenants');
+                if (Array.isArray(remote)) {
+                    localStorage.setItem(TENANT_KEY, JSON.stringify(remote));
+                    return remote;
+                }
+            } catch (e) {
+                console.warn('RTDB sync gagal, guna lokal', e);
+            }
+            return loadTenantData();
+        }
+
+        const form = document.getElementById('daftar-form');
+        const msg = document.getElementById('msg');
+
+        function showMsg(text, isError = false) {
+            msg.textContent = text;
+            msg.classList.toggle('error', isError);
+            msg.classList.add('visible');
+            setTimeout(() => msg.classList.remove('visible'), 2200);
+        }
+
+        await syncTenants();
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nama = form.nama.value.trim();
+            const ic = form.ic.value.replace(/\D/g, '');
+            if (!nama || !ic) {
+                showMsg('Nama dan IC diperlukan.', true);
+                return;
+            }
+            let tenants = loadTenantData();
+            const exists = tenants.find(t => (t.ic || '') === ic);
+            if (exists) {
+                exists.name = nama;
+                showMsg('IC sudah ada. Nama dikemas kini.');
+            } else {
+                tenants.push({
+                    name: nama,
+                    ic,
+                    garaj: '',
+                    kereta: 0,
+                    plat: [],
+                    baki: 0,
+                    status: 'Lunas'
+                });
+                showMsg('Guru baharu berjaya didaftarkan.');
+            }
+            saveTenantData(tenants);
+            form.reset();
+        });
+    </script>
+    <div class="banner-wrap bottom">
+        <div class="banner-marquee alt">CREATED BY DYNOZ. • CREATED BY DYNOZ. • CREATED BY DYNOZ. • CREATED BY DYNOZ.</div>
+    </div>
+</body>
+</html>

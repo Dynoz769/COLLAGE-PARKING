@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page admin-page">
+        <header class="admin-header">
+            <div>
+                <p class="eyebrow">Admin</p>
+                <h1>Dashboard Zona</h1>
+                <p class="lede">Pantau ringkas status zona dan garaj.</p>
+            </div>
+            <div class="admin-controls">
+                <span class="pill-soft ok" id="admin-role">Admin</span>
+                <span class="badge ghost" id="admin-name">Administrator</span>
+                <a class="ghost-btn" href="tunggak.html">Senarai Tunggak</a>
+                <button id="to-user" class="ghost-btn" type="button">Lihat view pengguna</button>
+                <button id="logout-admin" class="ghost-btn" type="button">Keluar</button>
+            </div>
+        </header>
+
+        <section class="stat-grid">
+            <div class="stat-card">
+                <p class="label">Total Zona</p>
+                <p id="stat-zona" class="value">-</p>
+                <p class="hint">Aktif</p>
+            </div>
+            <div class="stat-card">
+                <p class="label">Garaj</p>
+                <p id="stat-garaj" class="value">-</p>
+                <p class="hint">Bilangan semasa</p>
+            </div>
+            <div class="stat-card">
+                <p class="label">Terpakai</p>
+                <p id="stat-terpakai" class="value accent">-</p>
+                <p class="hint">Kereta > 0</p>
+            </div>
+            <div class="stat-card">
+                <p class="label">Kosong</p>
+                <p id="stat-kosong" class="value">-</p>
+                <p class="hint">Belum diisi</p>
+            </div>
+            <div class="stat-card">
+                <p class="label">Status Lunas</p>
+                <p id="stat-lunas" class="value">-</p>
+                <p class="hint">Sudah bayar</p>
+            </div>
+            <div class="stat-card">
+                <p class="label">Status Tunggak</p>
+                <p id="stat-tunggak" class="value">-</p>
+                <p class="hint">Belum bayar</p>
+            </div>
+        </section>
+
+        <section class="panel-row">
+            <div class="panel-card">
+                <div class="table-head">
+                    <p>Zona & Garaj</p>
+                    <span class="hint">Live snapshot</span>
+                </div>
+                <div class="admin-actions" style="margin-bottom:8px; align-items:flex-end; flex-wrap:wrap;">
+                    <div class="field" style="min-width: 180px;">
+                        <label for="add-garaj-zone">Tambah garaj dalam zone</label>
+                        <select id="add-garaj-zone"></select>
+                    </div>
+                    <div class="field" style="min-width: 140px;">
+                        <label for="delete-garaj-number">Pilih garaj</label>
+                        <select id="delete-garaj-number"></select>
+                    </div>
+                    <button id="add-garaj-btn" type="button" class="ghost-btn">+ Tambah Garaj</button>
+                    <button id="delete-garaj-btn" type="button" class="ghost-btn">- Hapus Garaj</button>
+                    <button id="add-zone-btn" type="button" class="ghost-btn">+ Tambah Zone</button>
+                    <button id="delete-zone-btn" type="button" class="ghost-btn warn">- Hapus Zone</button>
+                </div>
+                <div class="list" id="zone-snapshot"></div>
+            </div>
+
+            <div class="panel-card">
+                <div class="table-head">
+                    <p>Aktiviti Terkini</p>
+                    <span class="hint">Log 10 terbaru</span>
+                </div>
+                <div class="list" id="activity-list">
+                    <!-- filled by script -->
+                </div>
+            </div>
+        </section>
+
+        <section class="panel-card" style="margin-top:18px;">
+            <div class="table-head">
+                <p>Urus Penyewa (IC)</p>
+                <span class="hint">Cari nama/IC, tetapkan garaj & baki bayaran</span>
+                <div class="admin-actions">
+                    <a class="ghost-btn" href="daftar.html">+ Daftar Guru Baharu</a>
+                </div>
+            </div>
+            <div class="login-form" style="margin-top:8px;">
+                <div class="field">
+                    <label for="tenant-search">Cari nama atau IC</label>
+                    <input type="search" id="tenant-search" placeholder="Taip nama atau IC">
+                </div>
+                <div class="field">
+                    <label for="tenant-zone">Pilih Zone</label>
+                    <select id="tenant-zone">
+                        <option value="0">Zone 1</option>
+                        <option value="1">Zone 2</option>
+                        <option value="2">Zone 3</option>
+                        <option value="3">Zone 4</option>
+                        <option value="4">Zone 5</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="tenant-garaj-select">Garaj dipilih (sekali sahaja)</label>
+                    <select id="tenant-garaj-select"></select>
+                </div>
+                <div class="field">
+                    <label for="tenant-select">Pilih penyewa</label>
+                    <select id="tenant-select"></select>
+                </div>
+                <div class="field">
+                    <label>Nama</label>
+                    <input type="text" id="tenant-name" readonly>
+                </div>
+                <div class="field">
+                    <label>IC</label>
+                    <input type="text" id="tenant-ic" readonly>
+                </div>
+                <div class="field">
+                    <label for="tenant-kereta">Jumlah kereta</label>
+                    <input type="number" id="tenant-kereta" min="0" step="1" value="0">
+                </div>
+                <div class="field">
+                    <label for="tenant-plat">No. Plat (pisah koma)</label>
+                    <input type="text" id="tenant-plat" placeholder="ABC1234, DEF5678">
+                </div>
+                <div class="field">
+                    <label for="tenant-baki">Baki bayaran (RM)</label>
+                    <input type="number" id="tenant-baki" min="0" step="1" value="0">
+                </div>
+                <div class="field">
+                    <label for="tenant-status">Status bayaran</label>
+                    <select id="tenant-status">
+                        <option value="Lunas">Lunas</option>
+                        <option value="Tunggak">Tunggak</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label><input type="checkbox" id="tenant-approve"> Benarkan tukar garaj (kelulusan admin)</label>
+                </div>
+                <div class="alert" id="tenant-msg" style="opacity:0;"></div>
+                <div class="admin-actions">
+                    <button id="tenant-save" type="button" class="primary-btn">Simpan Penyewa</button>
+                    <button id="tenant-export" type="button" class="ghost-btn">Export Excel (CSV)</button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+<script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBwFhbL0lbYcIdejcYHvGR5ZWTZtwH9WaU",
+            authDomain: "collage-parking.firebaseapp.com",
+            projectId: "collage-parking",
+            storageBucket: "collage-parking.firebasestorage.app",
+            messagingSenderId: "948017323214",
+            appId: "1:948017323214:web:30555ce9fddae45593849f",
+            measurementId: "G-R82NJ57P3T",
+            databaseURL: "https://collage-parking-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const STORAGE_KEY = 'garage-demo-session';
+        const DATA_KEY = 'garage-data';
+        const TENANT_KEY = 'tenant-data';
+        const LOG_KEY = 'garage-logs';
+        let tenantData = [];
+        let zoneData = [];
+
+        const tenantBase = [
+            ['ASMADI BIN HUSSIN','690103036761'],
+            ['FATMA NUR LIYANA BINTI ALLUWI','911110036192'],
+            ['HASNIAH BINTI MOHAMED','700311035196'],
+            ['KAMARIAH BINTI KAMAROLZAMAN','710714035296'],
+            ['KAMARUL BAKRI BIN ABDULLAH','701027035169'],
+            ['MAHANI BINTI MOHAMAD','780101038164'],
+            ['MAHASHIM BIN BAKAR','661014035289'],
+            ['MD KHAIRULLIZAM BIN CHE IDERIS','860803235277'],
+            ['MOHD KHAIRILLAH BIN IBRAHIM (KJ)','680830035037'],
+            ['MOHD RIDUAN BIN KAMARUDDIN','760315035059'],
+            ['MOHD SOBRI BIN ZAKARIA','710624035559'],
+            ['MOHD ZAIN BIN YAACOB','730706035243'],
+            ['NAZERI BIN MUHAMAD','740202035011'],
+            ['NOOR AISYAH BINTI MUDA','740622115384'],
+            ['NOORHADIANI BINTI CHE SU','800711035644'],
+            ['NORAZIAN BINTI MAT DAUD','731101035026'],
+            ['NORFADHILLAH  BINTI MOHAMAD','800714035818'],
+            ['NORFAIZATU AKEMA BINTI ZAKARIA','900710035018'],
+            ['NORHAYATI BINTI OMAR','770602037056'],
+            ['NORIYAH BINTI DOLLAH @ ABDULLAH','720926035342'],
+            ['NUR WAHIDA AMALIN BINTI MOHD RAFI','910611035396'],
+            ['NURHASYYATI BINTI ZAHRI','920526035956'],
+            ['NURUL AIDA BINTI REDZUWAN','811221035098'],
+            ['NURUL FADZIHA BINTI AHMAD','801123035298'],
+            ['ROHAFZAN BINTI MUHAMMAD ','760318035038'],
+            ['ROHANA BINTI ABDUL RAHIM','661207035250'],
+            ['ROS ADURA BINTI KAMARUDDIN','740522035168'],
+            ['ROSMA BINTI ZAINUDEEN','771120045664'],
+            ['ROSMAN BIN ABDUL KADIR','760904035137'],
+            ['RUSYDA PEK BINTI ABDULLAH @ PEK WEE ENG','700908105388'],
+            ['SALWANI BINTI ABDULLAZIZ','790104035902'],
+            ['SHAHRI LAILA BINTI MOHD NOR','840630035964'],
+            ['SHARIFAH BINTI HUSSIN','710815035586'],
+            ['SITI ZURAINI BINTI ZAKARIA','870831035562']
+        ];
+
+        const accountMap = {
+            admin: { name: 'Administrator', role: 'Admin' }
+        };
+        const sessionUser = localStorage.getItem(STORAGE_KEY);
+
+        if (!sessionUser || !accountMap[sessionUser]) {
+            window.location.href = 'login-admin.html';
+        } else {
+            document.getElementById('admin-name').textContent = accountMap[sessionUser].name;
+            document.getElementById('admin-role').textContent = accountMap[sessionUser].role;
+        }
+
+        document.getElementById('logout-admin').addEventListener('click', () => {
+            localStorage.removeItem(STORAGE_KEY);
+            window.location.href = 'index.html';
+        });
+
+        document.getElementById('to-user').addEventListener('click', () => {
+            window.location.href = 'user.html';
+        });
+
+        function getZoneTemplate() {
+            const raw = localStorage.getItem(DATA_KEY);
+            if (raw) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length) {
+                        return parsed.map(z => {
+                            const len = (z && Array.isArray(z.garaj)) ? z.garaj.length : 10;
+                            return len > 0 ? len : 10;
+                        });
+                    }
+                } catch (e) { /* ignore */ }
+            }
+            return Array(5).fill(10);
+        }
+
+        async function fetchRTDB(path) {
+            const snap = await get(ref(db, path));
+            return snap.exists() ? snap.val() : null;
+        }
+
+        async function writeRTDB(path, data) {
+            await set(ref(db, path), data);
+        }
+
+        function loadDataFromTemplate(tenantList) {
+            const lengths = getZoneTemplate();
+            return buildZonesFromTenants(tenantList, lengths);
+        }
+
+        function saveData(data) {
+            localStorage.setItem(DATA_KEY, JSON.stringify(data));
+            writeRTDB('zones', data).catch(err => console.warn('RTDB zones save failed', err));
+        }
+
+        function loadLogs() {
+            const raw = localStorage.getItem(LOG_KEY);
+            if (!raw) return [];
+            try {
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveLogs(logs) {
+            localStorage.setItem(LOG_KEY, JSON.stringify(logs));
+        }
+
+        function loadTenantData() {
+            const raw = localStorage.getItem(TENANT_KEY);
+            if (!raw) {
+                const seeded = tenantBase.map(t => ({
+                    name: t[0],
+                    ic: t[1],
+                    garaj: '',
+                    kereta: 0,
+                    plat: [],
+                    baki: 0,
+                    status: 'Lunas'
+                }));
+                localStorage.setItem(TENANT_KEY, JSON.stringify(seeded));
+                return seeded;
+            }
+            try {
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed.map(t => ({
+                    name: t.name || '-',
+                    ic: t.ic || '',
+                    garaj: t.garaj || '',
+                    kereta: Number(t.kereta) || 0,
+                    plat: Array.isArray(t.plat) ? t.plat.filter(Boolean) : [],
+                    baki: Number(t.baki) || 0,
+                    status: t.status || ((Number(t.baki) || 0) > 0 ? 'Tunggak' : 'Lunas')
+                })) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveTenantData(list) {
+            localStorage.setItem(TENANT_KEY, JSON.stringify(list));
+            writeRTDB('tenants', list).catch(err => console.warn('RTDB tenants save failed', err));
+        }
+
+        function logActivity(type, message, zoneIdx, garajName) {
+            const logs = loadLogs();
+            const entry = {
+                type,
+                message,
+                zone: typeof zoneIdx === 'number' ? `Zone ${zoneIdx + 1}` : '',
+                garaj: garajName || '',
+                time: new Date().toISOString()
+            };
+            logs.unshift(entry);
+            const trimmed = logs.slice(0, 10);
+            saveLogs(trimmed);
+            renderActivity(trimmed);
+        }
+
+        tenantData = loadTenantData();
+        zoneData = loadDataFromTemplate(tenantData);
+        saveData(zoneData);
+
+        const activityList = document.getElementById('activity-list');
+
+        // Tenant UI
+        const tenantSearch = document.getElementById('tenant-search');
+        const tenantSelect = document.getElementById('tenant-select');
+        const tenantZone = document.getElementById('tenant-zone');
+        const tenantGarajSelect = document.getElementById('tenant-garaj-select');
+        const tenantName = document.getElementById('tenant-name');
+        const tenantIc = document.getElementById('tenant-ic');
+        const tenantKereta = document.getElementById('tenant-kereta');
+        const tenantPlat = document.getElementById('tenant-plat');
+        const tenantBaki = document.getElementById('tenant-baki');
+        const tenantStatus = document.getElementById('tenant-status');
+        const tenantApprove = document.getElementById('tenant-approve');
+        const tenantMsg = document.getElementById('tenant-msg');
+        const tenantSave = document.getElementById('tenant-save');
+
+        function computeStats() {
+            let zona = zoneData.length;
+            let garaj = 0;
+            let terpakai = 0;
+            let kosong = 0;
+            let lunas = 0;
+            let tunggak = 0;
+            zoneData.forEach(z => {
+                z.garaj.forEach(g => {
+                    garaj += 1;
+                    const occupied = (g.kereta || 0) > 0 || (g.guru && g.guru !== '-');
+                    if (occupied) terpakai += 1;
+                    else kosong += 1;
+                    const status = (g.status || '').toLowerCase();
+                    if (status === 'lunas') lunas += 1;
+                    else if (status === 'tunggak') tunggak += 1;
+                });
+            });
+            return { zona, garaj, terpakai, kosong, lunas, tunggak };
+        }
+
+        function renderZoneSnapshot() {
+            const container = document.getElementById('zone-snapshot');
+            if (!container) return;
+            container.innerHTML = '';
+            zoneData.forEach((z, idx) => {
+                let used = 0;
+                z.garaj.forEach(g => { if ((g.kereta || 0) > 0 || (g.guru && g.guru !== '-')) used += 1; });
+                const row = document.createElement('div');
+                row.className = 'row between';
+                const left = document.createElement('div');
+                left.className = 'row';
+                const badge = document.createElement('span');
+                badge.className = 'badge';
+                badge.textContent = `Zone ${idx + 1}`;
+                const muted = document.createElement('span');
+                muted.className = 'muted';
+                muted.textContent = `${used} / ${z.garaj.length} terpakai`;
+                left.appendChild(badge);
+                left.appendChild(muted);
+                const pill = document.createElement('span');
+                pill.className = 'pill-soft ' + (used >= z.garaj.length * 0.7 ? 'warn' : 'ok');
+                pill.textContent = used >= z.garaj.length * 0.7 ? 'Padat' : 'Stabil';
+                row.appendChild(left);
+                row.appendChild(pill);
+                container.appendChild(row);
+            });
+        }
+
+        function renderStats() {
+            const s = computeStats();
+            document.getElementById('stat-zona').textContent = s.zona;
+            document.getElementById('stat-garaj').textContent = s.garaj;
+            document.getElementById('stat-terpakai').textContent = s.terpakai;
+            document.getElementById('stat-kosong').textContent = s.kosong;
+            document.getElementById('stat-lunas').textContent = s.lunas;
+            document.getElementById('stat-tunggak').textContent = s.tunggak;
+        }
+
+        function renderActivity(logs) {
+            if (!activityList) return;
+            activityList.innerHTML = '';
+            if (!logs || !logs.length) {
+                const empty = document.createElement('div');
+                empty.className = 'muted';
+                empty.textContent = 'Tiada aktiviti lagi.';
+                activityList.appendChild(empty);
+                return;
+            }
+            logs.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'row between';
+                const left = document.createElement('div');
+                const title = document.createElement('p');
+                title.className = 'label';
+                title.textContent = item.message;
+                const meta = document.createElement('p');
+                meta.className = 'muted';
+                meta.textContent = [item.zone, item.garaj].filter(Boolean).join(' · ');
+                left.appendChild(title);
+                left.appendChild(meta);
+                const badge = document.createElement('span');
+                badge.className = 'chip ' + (item.type === 'delete' ? 'warn' : item.type === 'add' ? 'ok' : 'ghost');
+                badge.textContent = item.type === 'delete' ? 'Hapus' : item.type === 'add' ? 'Tambah' : 'Kemaskini';
+                row.appendChild(left);
+                row.appendChild(badge);
+                activityList.appendChild(row);
+            });
+        }
+
+        function hydrate() {
+            renderStats();
+        renderZoneSnapshot();
+        renderActivity(loadLogs());
+    }
+
+        async function syncFromRTDB() {
+            try {
+                const [remoteTenants, remoteZones] = await Promise.all([
+                    fetchRTDB('tenants'),
+                    fetchRTDB('zones')
+                ]);
+                if (Array.isArray(remoteTenants) && remoteTenants.length) {
+                    tenantData = remoteTenants;
+                    localStorage.setItem(TENANT_KEY, JSON.stringify(remoteTenants));
+                } else {
+                    tenantData = loadTenantData();
+                    await writeRTDB('tenants', tenantData);
+                }
+                if (Array.isArray(remoteZones) && remoteZones.length) {
+                    zoneData = remoteZones;
+                    localStorage.setItem(DATA_KEY, JSON.stringify(remoteZones));
+                } else {
+                    zoneData = loadDataFromTemplate(tenantData);
+                    saveData(zoneData);
+                }
+            } catch (e) {
+                console.warn('RTDB sync failed, using local data', e);
+                zoneData = loadDataFromTemplate(tenantData);
+            }
+        }
+
+        await syncFromRTDB();
+        hydrate();
+
+    // Derived zones from tenant list (untuk sync ke user)
+        function buildZonesFromTenants(list, lengths = []) {
+            const createEmptySlot = (label) => ({
+                name: label,
+                guru: '-',
+                ic: '',
+                kereta: 0,
+                plat: [],
+                status: 'Kosong',
+                baki: 0,
+                garajLabel: label
+            });
+            const parseSlot = (label, lengthsRef) => {
+                if (!label) return null;
+                const zoneMatch = /zone\s*(\d+)/i.exec(label);
+                const garajMatch = /garaj\s*(\d+)/i.exec(label);
+                if (!zoneMatch || !garajMatch) return null;
+                const z = Number(zoneMatch[1]) - 1;
+                const g = Number(garajMatch[1]) - 1;
+                const maxZones = lengthsRef.length || 5;
+                if (z < 0 || z >= maxZones || g < 0) return null;
+                const gMax = lengthsRef[z] ?? 10;
+                if (g >= gMax) return null;
+                return { z, g };
+            };
+
+            const zoneCount = lengths.length ? lengths.length : 5;
+            const zones = Array.from({ length: zoneCount }, (_, z) => {
+                const size = lengths[z] || 10;
+                return {
+                    garaj: Array.from({ length: size }, (_, g) => createEmptySlot(`Garaj ${g + 1}`))
+                };
+            });
+            const occupied = new Set();
+
+            // place explicit slots
+            list.forEach(t => {
+                const parsed = parseSlot(t.garaj, lengths);
+                if (parsed) {
+                    const key = `${parsed.z}-${parsed.g}`;
+                    if (!occupied.has(key)) {
+                        zones[parsed.z].garaj[parsed.g] = {
+                            name: `Garaj ${parsed.g + 1}`,
+                            guru: t.name,
+                            ic: t.ic,
+                            kereta: Number(t.kereta) || 0,
+                            plat: Array.isArray(t.plat) && t.plat.length ? t.plat : (t.ic ? [t.ic] : []),
+                            status: t.status || ((t.baki || 0) > 0 ? 'Tunggak' : 'Lunas'),
+                            baki: Number(t.baki) || 0,
+                            garajLabel: t.garaj || `Garaj ${parsed.g + 1}`
+                        };
+                        occupied.add(key);
+                    }
+                }
+            });
+
+            // place remaining sequentially
+            let cursor = 0;
+            const totalSlots = zones.reduce((sum, z) => sum + z.garaj.length, 0);
+            list.forEach(t => {
+                const parsed = parseSlot(t.garaj, lengths);
+                const alreadyPlaced = parsed && occupied.has(`${parsed.z}-${parsed.g}`);
+                if (alreadyPlaced) return;
+                while (cursor < totalSlots) {
+                    let running = 0;
+                    for (let z = 0; z < zones.length; z++) {
+                        const zoneSize = zones[z].garaj.length;
+                        if (cursor < running + zoneSize) {
+                            const g = cursor - running;
+                            const key = `${z}-${g}`;
+                            if (!occupied.has(key) && zones[z].garaj[g].status === 'Kosong') {
+                                zones[z].garaj[g] = {
+                                    name: `Garaj ${g + 1}`,
+                                    guru: t.name,
+                                    ic: t.ic,
+                                    kereta: Number(t.kereta) || 0,
+                                    plat: Array.isArray(t.plat) && t.plat.length ? t.plat : (t.ic ? [t.ic] : []),
+                                    status: t.status || ((t.baki || 0) > 0 ? 'Tunggak' : 'Lunas'),
+                                    baki: Number(t.baki) || 0,
+                                    garajLabel: t.garaj || `Garaj ${g + 1}`
+                                };
+                                occupied.add(key);
+                                cursor++;
+                                return;
+                            }
+                            break;
+                        }
+                        running += zoneSize;
+                    }
+                    cursor++;
+                }
+            });
+
+            return zones;
+        }
+
+        // ------- Tenant management -------
+        function showTenantMessage(text, isError = false) {
+            tenantMsg.textContent = text;
+            tenantMsg.classList.toggle('error', isError);
+            tenantMsg.style.opacity = 1;
+            setTimeout(() => {
+                tenantMsg.style.opacity = 0;
+                tenantMsg.classList.remove('error');
+            }, 2000);
+        }
+
+        function parseSlotLabel(label) {
+            if (!label) return null;
+            const zoneMatch = /zone\s*(\d+)/i.exec(label);
+            const garajMatch = /garaj\s*(\d+)/i.exec(label);
+            if (!zoneMatch || !garajMatch) return null;
+            const z = Number(zoneMatch[1]) - 1;
+            const g = Number(garajMatch[1]) - 1;
+            if (z < 0 || z >= zoneData.length || g < 0 || g >= (zoneData[z]?.garaj?.length || 0)) return null;
+            return { z, g };
+        }
+
+        function buildGarajOptions(zoneIdx, currentLabel, currentName) {
+            if (!tenantGarajSelect) return;
+            tenantGarajSelect.innerHTML = '';
+            const zoneNum = zoneIdx + 1;
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = '-- Pilih garaj --';
+            tenantGarajSelect.appendChild(placeholder);
+
+            const slots = zoneData[zoneIdx]?.garaj || [];
+            for (let i = 0; i < slots.length; i++) {
+                const slotInfo = slots[i] || {};
+                const label = `Zone ${zoneNum} Garaj ${i + 1}`;
+                const occupied = (slotInfo.kereta || 0) > 0 || (slotInfo.guru && slotInfo.guru !== '-');
+                const isOwn = occupied && currentName && slotInfo.guru === currentName && slotInfo.ic;
+                const opt = document.createElement('option');
+                opt.value = label;
+                opt.disabled = occupied && !isOwn;
+                opt.textContent = occupied
+                    ? `Garaj ${i + 1} - Ada orang: ${slotInfo.guru || ''} (${slotInfo.ic || ''})`
+                    : `Garaj ${i + 1} (Kosong)`;
+                if (currentLabel === label) {
+                    opt.selected = true;
+                }
+                tenantGarajSelect.appendChild(opt);
+            }
+        }
+
+        let currentTenantIdx = null;
+
+        function renderTenantOptions(filterText = '') {
+            if (!tenantSelect) return;
+            const term = filterText.toLowerCase();
+            tenantSelect.innerHTML = '';
+            tenantData
+                .map((t, idx) => ({ ...t, idx }))
+                .filter(t => !term || t.name.toLowerCase().includes(term) || t.ic.includes(term))
+                .forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.idx;
+                    opt.textContent = `${t.name} (${t.ic})`;
+                    tenantSelect.appendChild(opt);
+                });
+            if (tenantSelect.options.length) {
+                tenantSelect.value = tenantSelect.options[0].value;
+                fillTenantForm(Number(tenantSelect.value));
+            } else {
+                tenantName.value = '';
+                tenantIc.value = '';
+                tenantGarajSelect.innerHTML = '';
+                tenantBaki.value = 0;
+                tenantStatus.value = 'Lunas';
+                currentTenantIdx = null;
+            }
+        }
+
+        function applyGarajLock() {
+            const t = currentTenantIdx != null ? tenantData[currentTenantIdx] : null;
+            if (!t) {
+                tenantZone.disabled = false;
+                tenantGarajSelect.disabled = false;
+                return;
+            }
+            const hasGaraj = !!t.garaj;
+            const locked = hasGaraj && !tenantApprove.checked;
+            tenantZone.disabled = locked;
+            tenantGarajSelect.disabled = locked;
+            if (locked) {
+                const slot = parseSlotLabel(t.garaj);
+                if (slot) {
+                    tenantZone.value = slot.z;
+                    buildGarajOptions(slot.z, t.garaj, t.name);
+                    tenantGarajSelect.value = t.garaj;
+                }
+            }
+        }
+
+        function renderZoneSelectOptions() {
+            if (!tenantZone) return;
+            tenantZone.innerHTML = '';
+            zoneData.forEach((_, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.textContent = `Zone ${idx + 1}`;
+                tenantZone.appendChild(opt);
+            });
+            const addGarajZone = document.getElementById('add-garaj-zone');
+            if (addGarajZone) {
+                addGarajZone.innerHTML = '';
+                zoneData.forEach((_, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = idx;
+                    opt.textContent = `Zone ${idx + 1}`;
+                    addGarajZone.appendChild(opt);
+                });
+            }
+            const deleteGarajNumber = document.getElementById('delete-garaj-number');
+            if (deleteGarajNumber) {
+                const zIdx = Number((addGarajZone && addGarajZone.value) || 0);
+                deleteGarajNumber.innerHTML = '';
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = '-- Pilih garaj --';
+                deleteGarajNumber.appendChild(placeholder);
+                const slots = zoneData[zIdx]?.garaj || [];
+                slots.forEach((_, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = `Garaj ${i + 1}`;
+                    deleteGarajNumber.appendChild(opt);
+                });
+            }
+            if (addGarajZone) {
+                if (!addGarajZone.value && zoneData.length) {
+                    addGarajZone.value = '0';
+                }
+                const ev = new Event('change');
+                addGarajZone.dispatchEvent(ev);
+            }
+        }
+
+        function fillTenantForm(idx) {
+            const t = tenantData[idx];
+            if (!t) return;
+            currentTenantIdx = idx;
+            tenantName.value = t.name || '';
+            tenantIc.value = t.ic || '';
+            const slot = parseSlotLabel(t.garaj);
+            const zoneIdx = slot ? slot.z : 0;
+            tenantZone.value = zoneIdx;
+            buildGarajOptions(zoneIdx, t.garaj, t.name);
+            tenantGarajSelect.value = t.garaj || '';
+            tenantKereta.value = t.kereta || 0;
+            tenantPlat.value = (t.plat || []).join(', ');
+            tenantBaki.value = t.baki || 0;
+            const status = t.status || ((t.baki || 0) > 0 ? 'Tunggak' : 'Lunas');
+            tenantStatus.value = status;
+            tenantApprove.checked = false;
+            applyGarajLock();
+        }
+
+        renderZoneSelectOptions();
+        renderTenantOptions();
+
+        tenantSearch.addEventListener('input', () => renderTenantOptions(tenantSearch.value));
+        tenantSelect.addEventListener('change', () => fillTenantForm(Number(tenantSelect.value)));
+        tenantZone.addEventListener('change', () => {
+            const zIdx = Number(tenantZone.value);
+            const current = tenantGarajSelect.value || '';
+            const currentName = currentTenantIdx != null ? tenantData[currentTenantIdx]?.name : '';
+            buildGarajOptions(zIdx, current, currentName);
+        });
+
+        tenantApprove.addEventListener('change', () => {
+            applyGarajLock();
+        });
+
+        tenantSave.addEventListener('click', () => {
+            const idx = Number(tenantSelect.value);
+            const t = tenantData[idx];
+            if (!t) return;
+            const selectedGaraj = tenantGarajSelect.value;
+            const newGaraj = selectedGaraj || '';
+            const newKereta = Number(tenantKereta.value) || 0;
+            const newPlat = (tenantPlat.value || '').split(',').map(s => s.trim()).filter(Boolean);
+            const newBaki = Number(tenantBaki.value) || 0;
+            let newStatus = tenantStatus.value || 'Lunas';
+            if (newBaki > 0 && newStatus === 'Lunas') {
+                newStatus = 'Tunggak';
+            }
+            if (t.garaj && newGaraj && newGaraj !== t.garaj && !tenantApprove.checked) {
+                showTenantMessage('Tandakan kelulusan untuk tukar garaj.', true);
+                return;
+            }
+            t.garaj = newGaraj;
+            t.kereta = newKereta;
+            t.plat = newPlat;
+            t.baki = newBaki;
+            t.status = newStatus;
+            saveTenantData(tenantData);
+            const templateLengths = zoneData.map(z => z.garaj.length);
+            const zonesFromTenant = buildZonesFromTenants(tenantData, templateLengths);
+            localStorage.setItem(DATA_KEY, JSON.stringify(zonesFromTenant));
+            zoneData = zonesFromTenant;
+            renderStats();
+            renderZoneSnapshot();
+            renderZoneSelectOptions();
+            showTenantMessage('Maklumat penyewa disimpan.');
+            tenantApprove.checked = false;
+            renderTenantOptions(tenantSearch.value);
+            applyGarajLock();
+        });
+
+        // ----- Zone & Garaj management -----
+        const addZoneBtn = document.getElementById('add-zone-btn');
+        const addGarajBtn = document.getElementById('add-garaj-btn');
+        const addGarajZone = document.getElementById('add-garaj-zone');
+        const deleteZoneBtn = document.getElementById('delete-zone-btn');
+        const deleteGarajBtn = document.getElementById('delete-garaj-btn');
+        const deleteGarajNumber = document.getElementById('delete-garaj-number');
+        if (addGarajZone && deleteGarajNumber) {
+            addGarajZone.addEventListener('change', () => {
+                const zIdx = Number(addGarajZone.value || 0);
+                deleteGarajNumber.innerHTML = '';
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = '-- Pilih garaj --';
+                deleteGarajNumber.appendChild(placeholder);
+                const slots = zoneData[zIdx]?.garaj || [];
+                slots.forEach((_, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = `Garaj ${i + 1}`;
+                    deleteGarajNumber.appendChild(opt);
+                });
+            });
+        }
+
+        function createEmptySlot(label) {
+            return {
+                name: label,
+                guru: '-',
+                ic: '',
+                kereta: 0,
+                plat: [],
+                status: 'Kosong',
+                baki: 0,
+                garajLabel: label
+            };
+        }
+
+        function saveZonesAndRefresh() {
+            saveData(zoneData);
+            renderStats();
+            renderZoneSnapshot();
+            renderZoneSelectOptions();
+            renderTenantOptions(tenantSearch.value);
+        }
+
+        if (addZoneBtn) {
+            addZoneBtn.addEventListener('click', () => {
+                const newIndex = zoneData.length;
+                const newZone = {
+                    garaj: Array.from({ length: 10 }, (_, g) => createEmptySlot(`Garaj ${g + 1}`))
+                };
+                zoneData.push(newZone);
+                saveZonesAndRefresh();
+                if (addGarajZone) addGarajZone.value = String(newIndex);
+                showTenantMessage(`Zone ${newIndex + 1} ditambah.`);
+            });
+        }
+
+        if (addGarajBtn) {
+            addGarajBtn.addEventListener('click', () => {
+                const zIdx = Number(addGarajZone.value || 0);
+                if (!zoneData[zIdx]) return;
+                const nextIdx = zoneData[zIdx].garaj.length;
+                zoneData[zIdx].garaj.push(createEmptySlot(`Garaj ${nextIdx + 1}`));
+                saveZonesAndRefresh();
+                showTenantMessage(`Garaj ${nextIdx + 1} ditambah ke Zone ${zIdx + 1}.`);
+            });
+        }
+
+        if (deleteZoneBtn) {
+            deleteZoneBtn.addEventListener('click', () => {
+                const zIdx = Number(addGarajZone.value || 0);
+                if (zoneData.length <= 1) {
+                    showTenantMessage('Tidak boleh hapus zone terakhir.', true);
+                    return;
+                }
+                if (!zoneData[zIdx]) return;
+                // Kosongkan tenant yang ada di zone ini atau selepasnya
+                tenantData = tenantData.map(t => {
+                    const parsed = parseSlotLabel(t.garaj);
+                    if (parsed && (parsed.z === zIdx || parsed.z > zIdx)) {
+                        return { ...t, garaj: '' };
+                    }
+                    return t;
+                });
+                saveTenantData(tenantData);
+                zoneData.splice(zIdx, 1);
+                const lengths = zoneData.map(z => z.garaj.length);
+                zoneData = buildZonesFromTenants(tenantData, lengths);
+                saveZonesAndRefresh();
+                if (addGarajZone) addGarajZone.value = '0';
+                showTenantMessage(`Zone ${zIdx + 1} dihapus.`);
+            });
+        }
+
+        if (deleteGarajBtn) {
+            deleteGarajBtn.addEventListener('click', () => {
+                const zIdx = Number(addGarajZone.value || 0);
+                if (!zoneData[zIdx]) return;
+                const gIdx = Number(deleteGarajNumber.value || -1);
+                if (Number.isNaN(gIdx) || gIdx < 0) {
+                    showTenantMessage('Pilih garaj untuk dihapus.', true);
+                    return;
+                }
+                if (zoneData[zIdx].garaj.length <= 1) {
+                    showTenantMessage('Tidak boleh hapus garaj terakhir dalam zone ini.', true);
+                    return;
+                }
+                // kosongkan tenant yang terlibat atau berganjak
+                tenantData = tenantData.map(t => {
+                    const parsed = parseSlotLabel(t.garaj);
+                    if (parsed && parsed.z === zIdx && (parsed.g === gIdx || parsed.g > gIdx)) {
+                        return { ...t, garaj: '' };
+                    }
+                    return t;
+                });
+                saveTenantData(tenantData);
+                zoneData[zIdx].garaj.splice(gIdx, 1);
+                const lengths = zoneData.map(z => z.garaj.length);
+                zoneData = buildZonesFromTenants(tenantData, lengths);
+                saveZonesAndRefresh();
+                if (deleteGarajNumber) deleteGarajNumber.value = '';
+                showTenantMessage(`Garaj ${gIdx + 1} dihapus dari Zone ${zIdx + 1}.`);
+                applyGarajLock();
+            });
+        }
+
+        function exportTenantsToCsv() {
+            const slotMap = new Map();
+            zoneData.forEach((z, zIdx) => {
+                z.garaj.forEach((g, gIdx) => {
+                    if (g.ic) slotMap.set(g.ic, { z: zIdx, g: gIdx });
+                });
+            });
+            const headers = ['Nama','IC','Zone','Garaj','Label Garaj','Kereta','Plat','Status','Baki'];
+            const rows = tenantData.map(t => {
+                const parsed = parseSlotLabel(t.garaj);
+                const slot = parsed || (t.ic && slotMap.get(t.ic)) || null;
+                const zoneLabel = slot ? `Zone ${slot.z + 1}` : '';
+                const garajLabel = slot ? `Garaj ${slot.g + 1}` : '';
+                return [
+                    t.name || '',
+                    t.ic || '',
+                    zoneLabel,
+                    garajLabel,
+                    t.garaj || '',
+                    t.kereta || 0,
+                    (t.plat || []).join(' | '),
+                    t.status || '',
+                    t.baki || 0
+                ];
+            });
+            const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tenant-data.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        const tenantExportBtn = document.getElementById('tenant-export');
+        if (tenantExportBtn) {
+            tenantExportBtn.addEventListener('click', exportTenantsToCsv);
+        }
+    </script>
+</body>
+</html>

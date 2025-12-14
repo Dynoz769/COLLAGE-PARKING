@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Penyewa - Semak IC</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .tenant-hero {
+            display: grid;
+            gap: 12px;
+        }
+        .tenant-pill {
+            display: inline-flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .tenant-pill .pill {
+            margin-top: 0;
+        }
+        .tenant-info .detail-panel {
+            margin-top: 12px;
+        }
+        .tenant-meta {
+            display: grid;
+            gap: 6px;
+        }
+        .floating-actions {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 45;
+        }
+        .map-viewer {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            flex-direction: column;
+            z-index: 50;
+            backdrop-filter: blur(2px);
+        }
+        .map-viewer.visible { display: flex; }
+        .map-toolbar {
+            background: #0f172a;
+            color: #fff;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .map-toolbar .map-hint { display: block; color: #cbd5e1; font-size: 0.9rem; margin-top: 4px; }
+        .map-controls { display: flex; align-items: center; gap: 8px; }
+        .map-btn {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .map-btn.ghost { background: transparent; color: #fff; border-color: #334155; }
+        .map-stage {
+            flex: 1;
+            background: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            touch-action: none;
+        }
+        .map-stage img { max-width: none; width: 80%; transform-origin: center center; user-select: none; }
+        @media (max-width: 640px) {
+            .map-stage img { width: 110%; }
+            .map-toolbar { flex-direction: column; align-items: flex-start; }
+            .map-controls { width: 100%; justify-content: flex-end; }
+        }
+    </style>
+</head>
+<body class="auth-body">
+    <div class="banner-wrap">
+        <div class="banner-marquee">PARKING KOLEJ VOKASIONAL PASIR MAS • PARKING KOLEJ VOKASIONAL PASIR MAS • PARKING KOLEJ VOKASIONAL PASIR MAS •</div>
+    </div>
+    <div class="auth-layout">
+        <div class="auth-hero tenant-hero">
+            <div>
+                <p class="eyebrow">Portal Penyewa</p>
+                <h1>Semak status guna IC</h1>
+                <p class="lede">Masuk dengan nombor IC untuk melihat maklumat guru dan bidang pengajaran (seperti paparan pengguna).</p>
+            </div>
+            <div class="tenant-pill">
+                <span class="pill">Contoh IC: 690103036761</span>
+                <span class="pill">911110036192</span>
+                <span class="pill">700311035196</span>
+            </div>
+        </div>
+
+        <div class="auth-card">
+            <form id="tenant-login" class="login-form">
+                <h2>Log Masuk Penyewa</h2>
+                <div class="field">
+                    <label for="ic">No. IC</label>
+                    <input type="text" id="ic" name="ic" placeholder="900101-01-1234" autocomplete="off" required>
+                </div>
+                <div class="alert" id="tenant-alert"></div>
+                <button type="submit" class="primary-btn">Masuk</button>
+            </form>
+
+            <section id="tenant-info" class="admin-panel tenant-info hidden">
+                <div class="panel-head">
+                    <div class="tenant-meta">
+                        <p class="eyebrow">Penyewa</p>
+                        <h2 id="tenant-name">-</h2>
+                        <p class="muted" id="tenant-ic">-</p>
+                    </div>
+                    <div class="admin-actions">
+                        <span id="tenant-status" class="pill-soft ok">Status</span>
+                        <button id="tenant-logout" type="button" class="ghost-btn">Log Keluar</button>
+                    </div>
+                </div>
+
+                <div class="detail-panel">
+                    <h4>Maklumat Guru</h4>
+                    <div class="detail-row">
+                        <span>Nama: <strong id="info-name">-</strong></span>
+                        <span>IC: <strong id="info-ic">-</strong></span>
+                        <span>Zona: <strong id="info-zone">-</strong></span>
+                        <span>Garaj: <strong id="info-garaj">-</strong></span>
+                        <span>Jumlah Kereta: <strong id="info-kereta">-</strong></span>
+                        <span>No Plat: <strong id="info-plat">-</strong></span>
+                        <span>Status Bayaran: <strong id="info-status">-</strong></span>
+                        <span>Baki Bayaran: <strong id="info-baki">-</strong></span>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div class="floating-actions">
+        <a class="ghost-btn" href="index.html">Back</a>
+        <button type="button" id="show-map" class="ghost-btn">Lihat Peta</button>
+    </div>
+
+    <div class="map-viewer" id="map-viewer" aria-hidden="true">
+        <div class="map-toolbar">
+            <div>
+                <strong>Peta Kolej</strong>
+                <span class="map-hint">Guna scroll/cubitan untuk zum; seret imej untuk alih.</span>
+            </div>
+            <div class="map-controls">
+                <button class="map-btn" id="zoom-out" type="button">-</button>
+                <button class="map-btn" id="zoom-in" type="button">+</button>
+                <button class="map-btn ghost" id="close-map" type="button">Tutup</button>
+            </div>
+        </div>
+        <div class="map-stage" id="map-stage">
+            <img id="campus-map" src="map-kolej.jpg" alt="Peta Kolej" loading="lazy">
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBwFhbL0lbYcIdejcYHvGR5ZWTZtwH9WaU",
+            authDomain: "collage-parking.firebaseapp.com",
+            projectId: "collage-parking",
+            storageBucket: "collage-parking.firebasestorage.app",
+            messagingSenderId: "948017323214",
+            appId: "1:948017323214:web:30555ce9fddae45593849f",
+            measurementId: "G-R82NJ57P3T",
+            databaseURL: "https://collage-parking-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const TENANT_SESSION_KEY = 'tenant-ic-session';
+        const TENANT_KEY = 'tenant-data';
+        const tenantBase = [
+            ['ASMADI BIN HUSSIN','690103036761'],
+            ['FATMA NUR LIYANA BINTI ALLUWI','911110036192'],
+            ['HASNIAH BINTI MOHAMED','700311035196'],
+            ['KAMARIAH BINTI KAMAROLZAMAN','710714035296'],
+            ['KAMARUL BAKRI BIN ABDULLAH','701027035169'],
+            ['MAHANI BINTI MOHAMAD','780101038164'],
+            ['MAHASHIM BIN BAKAR','661014035289'],
+            ['MD KHAIRULLIZAM BIN CHE IDERIS','860803235277'],
+            ['MOHD KHAIRILLAH BIN IBRAHIM (KJ)','680830035037'],
+            ['MOHD RIDUAN BIN KAMARUDDIN','760315035059'],
+            ['MOHD SOBRI BIN ZAKARIA','710624035559'],
+            ['MOHD ZAIN BIN YAACOB','730706035243'],
+            ['NAZERI BIN MUHAMAD','740202035011'],
+            ['NOOR AISYAH BINTI MUDA','740622115384'],
+            ['NOORHADIANI BINTI CHE SU','800711035644'],
+            ['NORAZIAN BINTI MAT DAUD','731101035026'],
+            ['NORFADHILLAH  BINTI MOHAMAD','800714035818'],
+            ['NORFAIZATU AKEMA BINTI ZAKARIA','900710035018'],
+            ['NORHAYATI BINTI OMAR','770602037056'],
+            ['NORIYAH BINTI DOLLAH @ ABDULLAH','720926035342'],
+            ['NUR WAHIDA AMALIN BINTI MOHD RAFI','910611035396'],
+            ['NURHASYYATI BINTI ZAHRI','920526035956'],
+            ['NURUL AIDA BINTI REDZUWAN','811221035098'],
+            ['NURUL FADZIHA BINTI AHMAD','801123035298'],
+            ['ROHAFZAN BINTI MUHAMMAD ','760318035038'],
+            ['ROHANA BINTI ABDUL RAHIM','661207035250'],
+            ['ROS ADURA BINTI KAMARUDDIN','740522035168'],
+            ['ROSMA BINTI ZAINUDEEN','771120045664'],
+            ['ROSMAN BIN ABDUL KADIR','760904035137'],
+            ['RUSYDA PEK BINTI ABDULLAH @ PEK WEE ENG','700908105388'],
+            ['SALWANI BINTI ABDULLAZIZ','790104035902'],
+            ['SHAHRI LAILA BINTI MOHD NOR','840630035964'],
+            ['SHARIFAH BINTI HUSSIN','710815035586'],
+            ['SITI ZURAINI BINTI ZAKARIA','870831035562']
+        ];
+
+        async function fetchRTDB(path) {
+            const snap = await get(ref(db, path));
+            return snap.exists() ? snap.val() : null;
+        }
+
+        function loadTenantData() {
+            const raw = localStorage.getItem(TENANT_KEY);
+            if (!raw) {
+                const seeded = tenantBase.map(t => ({
+                    name: t[0],
+                    ic: t[1],
+                    garaj: '',
+                    kereta: 0,
+                    plat: [],
+                    baki: 0,
+                    status: 'Lunas'
+                }));
+                localStorage.setItem(TENANT_KEY, JSON.stringify(seeded));
+                return seeded;
+            }
+            try {
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed.map(t => ({
+                    name: t.name || '-',
+                    ic: t.ic || '',
+                    garaj: t.garaj || '',
+                    kereta: Number(t.kereta) || 0,
+                    plat: Array.isArray(t.plat) ? t.plat.filter(Boolean) : [],
+                    baki: Number(t.baki) || 0,
+                    status: t.status || ((Number(t.baki) || 0) > 0 ? 'Tunggak' : 'Lunas')
+                })) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        const loginForm = document.getElementById('tenant-login');
+        const icInput = document.getElementById('ic');
+        const alertBox = document.getElementById('tenant-alert');
+        const infoSection = document.getElementById('tenant-info');
+        const logoutBtn = document.getElementById('tenant-logout');
+        const statusBadge = document.getElementById('tenant-status');
+
+        const nameEl = document.getElementById('tenant-name');
+        const icEl = document.getElementById('tenant-ic');
+        const infoName = document.getElementById('info-name');
+        const infoIc = document.getElementById('info-ic');
+        const infoZone = document.getElementById('info-zone');
+        const infoGaraj = document.getElementById('info-garaj');
+        const infoKereta = document.getElementById('info-kereta');
+        const infoPlat = document.getElementById('info-plat');
+        const infoStatus = document.getElementById('info-status');
+        const infoBaki = document.getElementById('info-baki');
+
+        function normaliseIC(value) {
+            return (value || '').replace(/\\D/g, '');
+        }
+
+        function showError(message) {
+            alertBox.textContent = message;
+            alertBox.classList.add('visible', 'error');
+        }
+
+        function clearError() {
+            alertBox.textContent = '';
+            alertBox.classList.remove('visible', 'error');
+        }
+
+        async function syncTenants() {
+            try {
+                const remote = await fetchRTDB('tenants');
+                if (Array.isArray(remote)) {
+                    localStorage.setItem(TENANT_KEY, JSON.stringify(remote));
+                    return remote;
+                }
+            } catch (e) {
+                console.warn('RTDB gagal, guna lokal', e);
+            }
+            return loadTenantData();
+        }
+
+        const tenantList = await syncTenants();
+        const icIndexMap = new Map();
+        tenantList.forEach((t, idx) => icIndexMap.set(t.ic, idx));
+
+        function setStatus(status) {
+            const normalized = (status || '').toLowerCase();
+            const isLunas = normalized === 'lunas';
+            statusBadge.textContent = status || 'Rekod ditemui';
+            statusBadge.classList.remove('ok', 'warn');
+            statusBadge.classList.add(isLunas ? 'ok' : 'warn');
+            if (infoStatus) {
+                infoStatus.textContent = status || '-';
+            }
+        }
+
+        function deriveSlot(key, garajLabel) {
+            if (garajLabel) {
+                const zoneMatch = garajLabel.match(/Zone\s*(\d+)/i);
+                const garajMatch = garajLabel.match(/Garaj\s*(\d+)/i);
+                return {
+                    zone: zoneMatch ? `Zone ${zoneMatch[1]}` : '-',
+                    garaj: garajMatch ? `Garaj ${garajMatch[1]}` : garajLabel
+                };
+            }
+            const idx = icIndexMap.has(key) ? icIndexMap.get(key) : -1;
+            if (idx === -1) return { zone: '-', garaj: '-' };
+            return {
+                zone: `Zone ${((idx % 5) + 1)}`,
+                garaj: `Garaj ${((idx % 10) + 1)}`
+            };
+        }
+
+        function renderTenant(key, data) {
+            const slot = deriveSlot(key, data.garaj);
+            nameEl.textContent = data.name || '-';
+            icEl.textContent = data.ic || '-';
+            infoName.textContent = data.name || '-';
+            infoIc.textContent = data.ic || '-';
+            infoZone.textContent = slot.zone || '-';
+            infoGaraj.textContent = slot.garaj || data.garaj || '-';
+            const keretaCount = data.garaj ? 1 : 0;
+            if (infoKereta) infoKereta.textContent = data.kereta ?? keretaCount;
+            if (infoPlat) infoPlat.textContent = (data.plat || []).join(', ') || data.ic || '-';
+            infoStatus.textContent = data.status || 'Lunas';
+            if (infoBaki) infoBaki.textContent = `RM ${data.baki ?? 0}`;
+            setStatus(data.status || (data.baki > 0 ? 'Tunggak' : 'Lunas'));
+            infoSection.classList.remove('hidden');
+            loginForm.classList.add('hidden');
+        }
+
+        function handleLogin(icValue) {
+            const key = normaliseIC(icValue);
+            const data = tenantList.find(t => t.ic === key);
+            if (!data) {
+                showError('IC tidak ditemui dalam rekod. Cuba semula atau hubungi admin.');
+                return;
+            }
+            clearError();
+            localStorage.setItem(TENANT_SESSION_KEY, key);
+            renderTenant(key, data);
+        }
+
+        function resetView() {
+            localStorage.removeItem(TENANT_SESSION_KEY);
+            infoSection.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+            loginForm.reset();
+            clearError();
+            icInput.focus();
+        }
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleLogin(icInput.value.trim());
+        });
+
+        logoutBtn.addEventListener('click', resetView);
+
+        const saved = localStorage.getItem(TENANT_SESSION_KEY);
+        if (saved) {
+            const found = tenantList.find(t => t.ic === saved);
+            if (found) renderTenant(saved, found);
+        }
+
+        // Map viewer (peta kolej)
+        const mapViewer = document.getElementById('map-viewer');
+        const mapStage = document.getElementById('map-stage');
+        const mapImg = document.getElementById('campus-map');
+        const showMapBtn = document.getElementById('show-map');
+        const closeMapBtn = document.getElementById('close-map');
+        const zoomInBtn = document.getElementById('zoom-in');
+        const zoomOutBtn = document.getElementById('zoom-out');
+
+        let mapScale = 1;
+        let mapTranslate = { x: 0, y: 0 };
+        const pointerState = new Map();
+        let lastPinchDistance = null;
+        let isPanning = false;
+        let panStart = { x: 0, y: 0 };
+
+        function clampScale(val) {
+            return Math.max(0.5, Math.min(4, val));
+        }
+
+        function applyMapTransform() {
+            if (!mapImg) return;
+            mapImg.style.transform = `translate(${mapTranslate.x}px, ${mapTranslate.y}px) scale(${mapScale})`;
+        }
+
+        function resetMap() {
+            mapScale = 1;
+            mapTranslate = { x: 0, y: 0 };
+            applyMapTransform();
+        }
+
+        function openMap() {
+            resetMap();
+            if (!mapViewer) return;
+            mapViewer.classList.add('visible');
+            mapViewer.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeMap() {
+            if (!mapViewer) return;
+            mapViewer.classList.remove('visible');
+            mapViewer.setAttribute('aria-hidden', 'true');
+        }
+
+        function zoomBy(step) {
+            mapScale = clampScale(mapScale + step);
+            applyMapTransform();
+        }
+
+        if (mapImg) {
+            mapImg.setAttribute('draggable', 'false');
+        }
+
+        if (showMapBtn && mapViewer) {
+            showMapBtn.addEventListener('click', openMap);
+        }
+        if (closeMapBtn) {
+            closeMapBtn.addEventListener('click', closeMap);
+        }
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', () => zoomBy(0.2));
+        }
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', () => zoomBy(-0.2));
+        }
+
+        if (mapStage && mapImg) {
+            mapStage.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                zoomBy(delta);
+            }, { passive: false });
+
+            mapStage.addEventListener('pointerdown', (e) => {
+                pointerState.set(e.pointerId, e);
+                mapStage.setPointerCapture(e.pointerId);
+                if (pointerState.size === 1) {
+                    isPanning = true;
+                    panStart = { x: e.clientX - mapTranslate.x, y: e.clientY - mapTranslate.y };
+                } else if (pointerState.size === 2) {
+                    isPanning = false;
+                    const [p1, p2] = Array.from(pointerState.values());
+                    lastPinchDistance = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+                }
+            });
+
+            mapStage.addEventListener('pointermove', (e) => {
+                if (!pointerState.has(e.pointerId)) return;
+                pointerState.set(e.pointerId, e);
+
+                if (pointerState.size === 2) {
+                    const [p1, p2] = Array.from(pointerState.values());
+                    const distance = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+                    if (lastPinchDistance) {
+                        const ratio = distance / lastPinchDistance;
+                        mapScale = clampScale(mapScale * ratio);
+                        applyMapTransform();
+                    }
+                    lastPinchDistance = distance;
+                } else if (isPanning) {
+                    mapTranslate = { x: e.clientX - panStart.x, y: e.clientY - panStart.y };
+                    applyMapTransform();
+                }
+            });
+
+            function endPointer(e) {
+                pointerState.delete(e.pointerId);
+                if (pointerState.size < 2) {
+                    lastPinchDistance = null;
+                }
+                if (pointerState.size === 0) {
+                    isPanning = false;
+                }
+            }
+
+            mapStage.addEventListener('pointerup', endPointer);
+            mapStage.addEventListener('pointercancel', endPointer);
+            mapStage.addEventListener('pointerleave', endPointer);
+        }
+    </script>
+    <div class="banner-wrap bottom">
+        <div class="banner-marquee alt">CREATED BY DYNOZ. • CREATED BY DYNOZ. • CREATED BY DYNOZ. • CREATED BY DYNOZ.</div>
+    </div>
+</body>
+</html>
