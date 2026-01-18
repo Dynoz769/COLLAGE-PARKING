@@ -136,6 +136,24 @@
                         <span>Baki Bayaran: <strong id="info-baki">-</strong></span>
                     </div>
                 </div>
+                <div class="detail-panel payment-panel">
+                    <div class="payment-head">
+                        <div>
+                            <h4>Bayaran Garaj</h4>
+                            <p class="muted">Pembayaran manual. Status dikemaskini oleh admin selepas semakan.</p>
+                        </div>
+                        <span id="payment-pill" class="pill-soft ok">Lunas</span>
+                    </div>
+                    <div class="payment-actions">
+                        <div class="field">
+                            <label for="payment-amount">Jumlah bayar (RM)</label>
+                            <input type="number" id="payment-amount" min="1" step="1" value="0">
+                        </div>
+                        <button type="button" id="pay-now" class="primary-btn">Buka Pautan Bayar</button>
+                    </div>
+                    <p class="hint" id="payment-hint">Baki semasa: RM 0</p>
+                    <div class="alert" id="payment-msg"></div>
+                </div>
             </section>
         </div>
     </div>
@@ -164,7 +182,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+        import { getDatabase, ref, get, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBwFhbL0lbYcIdejcYHvGR5ZWTZtwH9WaU",
@@ -270,6 +288,21 @@
         const infoPlat = document.getElementById('info-plat');
         const infoStatus = document.getElementById('info-status');
         const infoBaki = document.getElementById('info-baki');
+        const paymentAmount = document.getElementById('payment-amount');
+        const payNowBtn = document.getElementById('pay-now');
+        const paymentHint = document.getElementById('payment-hint');
+        const paymentMsg = document.getElementById('payment-msg');
+        const paymentPill = document.getElementById('payment-pill');
+
+        const PAYMENT_CONFIG = {
+            mode: 'manual',
+            provider: 'toyyibpay',
+            paymentUrl: 'https://toyyibpay.com/collageparking',
+            createEndpoint: ''
+        };
+
+        let currentTenantKey = null;
+        let currentTenantData = null;
 
         function normaliseIC(value) {
             return (value || '').replace(/\\D/g, '');
@@ -285,6 +318,57 @@
             alertBox.classList.remove('visible', 'error');
         }
 
+        function showPaymentMessage(message, isError = false) {
+            if (!paymentMsg) return;
+            paymentMsg.textContent = message;
+            paymentMsg.classList.add('visible');
+            paymentMsg.classList.toggle('error', isError);
+        }
+
+        function clearPaymentMessage() {
+            if (!paymentMsg) return;
+            paymentMsg.textContent = '';
+            paymentMsg.classList.remove('visible', 'error');
+        }
+
+        function isPaymentConfigured() {
+            if (PAYMENT_CONFIG.mode === 'auto') {
+                return PAYMENT_CONFIG.createEndpoint && !PAYMENT_CONFIG.createEndpoint.includes('YOUR_');
+            }
+            if (PAYMENT_CONFIG.mode === 'manual') {
+                return PAYMENT_CONFIG.paymentUrl && !PAYMENT_CONFIG.paymentUrl.includes('YOUR_');
+            }
+            return false;
+        }
+
+        function updatePaymentUI(data) {
+            if (!paymentAmount || !payNowBtn || !paymentHint || !paymentPill) return;
+            const baki = Math.max(0, Number(data?.baki) || 0);
+            const status = data?.status || (baki > 0 ? 'Tunggak' : 'Lunas');
+            const isManual = PAYMENT_CONFIG.mode === 'manual';
+            const configured = isPaymentConfigured();
+            paymentAmount.value = baki ? String(baki) : '0';
+            paymentAmount.max = baki ? String(baki) : '0';
+            paymentAmount.readOnly = isManual;
+            paymentAmount.disabled = baki <= 0;
+            payNowBtn.disabled = baki <= 0 || !configured;
+            payNowBtn.textContent = baki <= 0
+                ? 'Tiada Baki'
+                : (isManual ? 'Buka Pautan Bayar' : 'Bayar Sekarang');
+            if (baki <= 0) {
+                paymentHint.textContent = 'Tiada baki tertunggak.';
+            } else if (!configured) {
+                paymentHint.textContent = 'Pautan bayaran belum diset. Sila hubungi admin.';
+            } else if (isManual) {
+                paymentHint.textContent = `Baki semasa: RM ${baki}. Tekan untuk buka pautan bayaran.`;
+            } else {
+                paymentHint.textContent = `Baki semasa: RM ${baki}. Klik bayar untuk teruskan.`;
+            }
+            paymentPill.textContent = status;
+            paymentPill.classList.toggle('ok', String(status).toLowerCase() === 'lunas');
+            paymentPill.classList.toggle('warn', String(status).toLowerCase() !== 'lunas');
+        }
+
         async function syncTenants() {
             try {
                 const remote = await fetchRTDB('tenants');
@@ -298,9 +382,38 @@
             return loadTenantData();
         }
 
-        const tenantList = await syncTenants();
-        const icIndexMap = new Map();
-        tenantList.forEach((t, idx) => icIndexMap.set(t.ic, idx));
+        let tenantList = await syncTenants();
+        let icIndexMap = new Map();
+
+        function rebuildIndexMap(list) {
+            icIndexMap = new Map();
+            list.forEach((t, idx) => {
+                if (t && t.ic) {
+                    icIndexMap.set(t.ic, idx);
+                }
+            });
+        }
+
+        rebuildIndexMap(tenantList);
+
+        let paymentNotice = null;
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentStatus = (urlParams.get('payment') || urlParams.get('status') || urlParams.get('status_id') || '').toLowerCase();
+        const paymentSuccess = paymentStatus === 'success' || paymentStatus === 'paid' || paymentStatus === '1';
+        const paymentFailed = paymentStatus === 'failed' || paymentStatus === 'cancel' || paymentStatus === 'canceled' || paymentStatus === '0';
+        if (paymentSuccess) {
+            paymentNotice = {
+                message: PAYMENT_CONFIG.mode === 'auto'
+                    ? 'Bayaran berjaya. Status akan dikemaskini automatik.'
+                    : 'Bayaran diterima. Status akan dikemaskini oleh admin.',
+                isError: false
+            };
+        } else if (paymentFailed) {
+            paymentNotice = { message: 'Bayaran gagal atau dibatalkan.', isError: true };
+        }
+        if (paymentStatus) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
 
         function setStatus(status) {
             const normalized = (status || '').toLowerCase();
@@ -331,6 +444,8 @@
         }
 
         function renderTenant(key, data) {
+            currentTenantKey = key;
+            currentTenantData = data;
             const slot = deriveSlot(key, data.garaj);
             nameEl.textContent = data.name || '-';
             icEl.textContent = data.ic || '-';
@@ -344,6 +459,11 @@
             infoStatus.textContent = data.status || 'Lunas';
             if (infoBaki) infoBaki.textContent = `RM ${data.baki ?? 0}`;
             setStatus(data.status || (data.baki > 0 ? 'Tunggak' : 'Lunas'));
+            updatePaymentUI(data);
+            if (paymentNotice) {
+                showPaymentMessage(paymentNotice.message, paymentNotice.isError);
+                paymentNotice = null;
+            }
             infoSection.classList.remove('hidden');
             loginForm.classList.add('hidden');
         }
@@ -360,12 +480,83 @@
             renderTenant(key, data);
         }
 
+        async function startPayment() {
+            if (!currentTenantData) {
+                showPaymentMessage('Sila log masuk dahulu.', true);
+                return;
+            }
+            if (!isPaymentConfigured()) {
+                showPaymentMessage('Pautan bayaran belum diset. Sila hubungi admin.', true);
+                return;
+            }
+            const amount = Math.floor(Number(paymentAmount?.value) || 0);
+            if (PAYMENT_CONFIG.mode === 'manual') {
+                window.open(PAYMENT_CONFIG.paymentUrl, '_blank', 'noopener');
+                showPaymentMessage('Sila lengkapkan bayaran dan maklumkan admin.', false);
+                return;
+            }
+            if (!amount || amount <= 0) {
+                showPaymentMessage('Jumlah bayar tidak sah.', true);
+                return;
+            }
+            try {
+                if (payNowBtn) payNowBtn.disabled = true;
+                if (paymentAmount) paymentAmount.disabled = true;
+                showPaymentMessage('Sediakan bil pembayaran...', false);
+                const response = await fetch(PAYMENT_CONFIG.createEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ic: currentTenantData.ic,
+                        name: currentTenantData.name,
+                        amount
+                    })
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const payload = await response.json();
+                if (!payload || !payload.url) {
+                    throw new Error('URL pembayaran tidak sah.');
+                }
+                window.location.href = payload.url;
+            } catch (err) {
+                console.warn('Pembayaran gagal', err);
+                showPaymentMessage('Gagal buka pembayaran. Cuba lagi.', true);
+                if (payNowBtn) payNowBtn.disabled = false;
+                if (paymentAmount) paymentAmount.disabled = false;
+            }
+        }
+
+        function watchTenantUpdates() {
+            onValue(ref(db, 'tenants'), (snap) => {
+                if (!snap.exists()) return;
+                const updated = snap.val();
+                if (!Array.isArray(updated)) return;
+                tenantList = updated;
+                localStorage.setItem(TENANT_KEY, JSON.stringify(updated));
+                rebuildIndexMap(updated);
+                if (currentTenantKey) {
+                    const latest = updated.find(t => t.ic === currentTenantKey);
+                    if (latest) {
+                        currentTenantData = latest;
+                        renderTenant(currentTenantKey, latest);
+                    }
+                }
+            }, (err) => {
+                console.warn('Gagal dengar kemaskini tenant', err);
+            });
+        }
+
         function resetView() {
             localStorage.removeItem(TENANT_SESSION_KEY);
             infoSection.classList.add('hidden');
             loginForm.classList.remove('hidden');
             loginForm.reset();
             clearError();
+            clearPaymentMessage();
+            currentTenantKey = null;
+            currentTenantData = null;
             icInput.focus();
         }
 
@@ -375,12 +566,26 @@
         });
 
         logoutBtn.addEventListener('click', resetView);
+        if (payNowBtn) {
+            payNowBtn.addEventListener('click', startPayment);
+        }
+        if (paymentAmount) {
+            paymentAmount.addEventListener('input', () => {
+                const max = Number(paymentAmount.max) || 0;
+                const current = Number(paymentAmount.value) || 0;
+                if (max && current > max) {
+                    paymentAmount.value = String(max);
+                }
+            });
+        }
 
         const saved = localStorage.getItem(TENANT_SESSION_KEY);
         if (saved) {
             const found = tenantList.find(t => t.ic === saved);
             if (found) renderTenant(saved, found);
         }
+
+        watchTenantUpdates();
 
         // Map viewer (peta kolej)
         const mapViewer = document.getElementById('map-viewer');
