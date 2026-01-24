@@ -373,20 +373,35 @@
             return snap.exists() ? snap.val() : null;
         }
 
+        function normalizeList(value) {
+            if (Array.isArray(value)) {
+                return value.filter(Boolean);
+            }
+            if (value && typeof value === 'object') {
+                const keys = Object.keys(value);
+                const numeric = keys.every(k => String(Number(k)) === k);
+                const ordered = numeric ? keys.sort((a, b) => Number(a) - Number(b)) : keys;
+                return ordered.map(k => value[k]).filter(Boolean);
+            }
+            return null;
+        }
+
         async function loadData() {
             try {
                 const [remoteTenants, remoteZones] = await Promise.all([
                     fetchRTDB('tenants'),
                     fetchRTDB('zones')
                 ]);
-                if (Array.isArray(remoteTenants)) {
-                    localStorage.setItem(TENANT_KEY, JSON.stringify(remoteTenants));
+                const tenants = normalizeList(remoteTenants);
+                if (tenants && tenants.length) {
+                    localStorage.setItem(TENANT_KEY, JSON.stringify(tenants));
                 }
-                if (Array.isArray(remoteZones)) {
-                    localStorage.setItem(DATA_KEY, JSON.stringify(remoteZones));
-                    renderStats(remoteZones);
-                    renderGaraj(remoteZones);
-                    return remoteZones;
+                const zones = normalizeList(remoteZones);
+                if (zones && zones.length) {
+                    localStorage.setItem(DATA_KEY, JSON.stringify(zones));
+                    renderStats(zones);
+                    renderGaraj(zones);
+                    return zones;
                 }
             } catch (e) {
                 console.warn('RTDB sync gagal, guna fallback', e);

@@ -266,6 +266,19 @@
             await set(ref(db, path), data);
         }
 
+        function normalizeList(value) {
+            if (Array.isArray(value)) {
+                return value.filter(Boolean);
+            }
+            if (value && typeof value === 'object') {
+                const keys = Object.keys(value);
+                const numeric = keys.every(k => String(Number(k)) === k);
+                const ordered = numeric ? keys.sort((a, b) => Number(a) - Number(b)) : keys;
+                return ordered.map(k => value[k]).filter(Boolean);
+            }
+            return null;
+        }
+
         function loadDataFromTemplate(tenantList) {
             const lengths = getZoneTemplate();
             return buildZonesFromTenants(tenantList, lengths);
@@ -344,7 +357,7 @@
 
         tenantData = loadTenantData();
         zoneData = loadDataFromTemplate(tenantData);
-        saveData(zoneData);
+        localStorage.setItem(DATA_KEY, JSON.stringify(zoneData));
 
         const activityList = document.getElementById('activity-list');
 
@@ -465,16 +478,18 @@
                     fetchRTDB('tenants'),
                     fetchRTDB('zones')
                 ]);
-                if (Array.isArray(remoteTenants) && remoteTenants.length) {
-                    tenantData = remoteTenants;
-                    localStorage.setItem(TENANT_KEY, JSON.stringify(remoteTenants));
+                const tenants = normalizeList(remoteTenants);
+                if (tenants && tenants.length) {
+                    tenantData = tenants;
+                    localStorage.setItem(TENANT_KEY, JSON.stringify(tenants));
                 } else {
                     tenantData = loadTenantData();
                     await writeRTDB('tenants', tenantData);
                 }
-                if (Array.isArray(remoteZones) && remoteZones.length) {
-                    zoneData = remoteZones;
-                    localStorage.setItem(DATA_KEY, JSON.stringify(remoteZones));
+                const zones = normalizeList(remoteZones);
+                if (zones && zones.length) {
+                    zoneData = zones;
+                    localStorage.setItem(DATA_KEY, JSON.stringify(zones));
                 } else {
                     zoneData = loadDataFromTemplate(tenantData);
                     saveData(zoneData);

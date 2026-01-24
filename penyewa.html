@@ -240,6 +240,19 @@
             return snap.exists() ? snap.val() : null;
         }
 
+        function normalizeList(value) {
+            if (Array.isArray(value)) {
+                return value.filter(Boolean);
+            }
+            if (value && typeof value === 'object') {
+                const keys = Object.keys(value);
+                const numeric = keys.every(k => String(Number(k)) === k);
+                const ordered = numeric ? keys.sort((a, b) => Number(a) - Number(b)) : keys;
+                return ordered.map(k => value[k]).filter(Boolean);
+            }
+            return null;
+        }
+
         function loadTenantData() {
             const raw = localStorage.getItem(TENANT_KEY);
             if (!raw) {
@@ -372,9 +385,10 @@
         async function syncTenants() {
             try {
                 const remote = await fetchRTDB('tenants');
-                if (Array.isArray(remote)) {
-                    localStorage.setItem(TENANT_KEY, JSON.stringify(remote));
-                    return remote;
+                const normalized = normalizeList(remote);
+                if (normalized && normalized.length) {
+                    localStorage.setItem(TENANT_KEY, JSON.stringify(normalized));
+                    return normalized;
                 }
             } catch (e) {
                 console.warn('RTDB gagal, guna lokal', e);
@@ -531,8 +545,8 @@
         function watchTenantUpdates() {
             onValue(ref(db, 'tenants'), (snap) => {
                 if (!snap.exists()) return;
-                const updated = snap.val();
-                if (!Array.isArray(updated)) return;
+                const updated = normalizeList(snap.val());
+                if (!updated) return;
                 tenantList = updated;
                 localStorage.setItem(TENANT_KEY, JSON.stringify(updated));
                 rebuildIndexMap(updated);
