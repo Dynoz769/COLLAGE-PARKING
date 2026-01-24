@@ -166,7 +166,7 @@
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+        import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBwFhbL0lbYcIdejcYHvGR5ZWTZtwH9WaU",
@@ -180,19 +180,9 @@
         };
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const SESSION_KEY = 'garage-demo-session';
-        const DATA_KEY = 'garage-data';
-        const TENANT_KEY = 'tenant-data';
-
-        // Require prior login (session set by login-admin.html)
-        const sessionUser = localStorage.getItem(SESSION_KEY);
-        if (!sessionUser) {
-            window.location.href = 'index.html';
-        }
-
         const sessionUserEl = document.getElementById('session-user');
-        if (sessionUserEl && sessionUser) {
-            sessionUserEl.textContent = `Log masuk: ${sessionUser}`;
+        if (sessionUserEl) {
+            sessionUserEl.textContent = 'Pengguna';
         }
 
         const tenantBase = [
@@ -232,48 +222,29 @@
             ['SITI ZURAINI BINTI ZAKARIA','870831035562']
         ];
 
-        function loadTenantList() {
-            const raw = localStorage.getItem(TENANT_KEY);
-            if (!raw) {
-                const seeded = tenantBase.map(t => ({
-                    name: t[0],
-                    ic: t[1],
-                    garaj: '',
-                    kereta: 0,
-                    plat: [],
-                    baki: 0,
-                    status: 'Lunas'
-                }));
-                localStorage.setItem(TENANT_KEY, JSON.stringify(seeded));
-                return seeded;
-            }
-            try {
-                const parsed = JSON.parse(raw);
-                return Array.isArray(parsed) ? parsed.map(t => ({
-                    name: t.name || '-',
-                    ic: t.ic || '',
-                    garaj: t.garaj || '',
-                    kereta: Number(t.kereta) || 0,
-                    plat: Array.isArray(t.plat) ? t.plat.filter(Boolean) : [],
-                    baki: Number(t.baki) || 0,
-                    status: t.status || ((Number(t.baki) || 0) > 0 ? 'Tunggak' : 'Lunas')
-                })) : tenantBase.map(t => ({ name: t[0], ic: t[1], garaj: '', kereta: 0, plat: [], baki: 0, status: 'Lunas' }));
-            } catch (e) {
-                return tenantBase.map(t => ({ name: t[0], ic: t[1], garaj: '', kereta: 0, plat: [], baki: 0, status: 'Lunas' }));
-            }
+        function normalizeTenants(list) {
+            if (!Array.isArray(list)) return [];
+            return list.map(t => ({
+                name: t?.name || '-',
+                ic: t?.ic || '',
+                garaj: t?.garaj || '',
+                kereta: Number(t?.kereta) || 0,
+                plat: Array.isArray(t?.plat) ? t.plat.filter(Boolean) : [],
+                baki: Number(t?.baki) || 0,
+                status: t?.status || ((Number(t?.baki) || 0) > 0 ? 'Tunggak' : 'Lunas')
+            }));
         }
 
-        function getZoneTemplate() {
-            const raw = localStorage.getItem(DATA_KEY);
-            if (raw) {
-                try {
-                    const parsed = JSON.parse(raw);
-                    if (Array.isArray(parsed) && parsed.length) {
-                        return parsed.map(z => Array.isArray(z.garaj) ? z.garaj.length : 10);
-                    }
-                } catch (e) { /* ignore */ }
-            }
-            return Array(5).fill(10);
+        function seedTenants() {
+            return tenantBase.map(t => ({
+                name: t[0],
+                ic: t[1],
+                garaj: '',
+                kereta: 0,
+                plat: [],
+                baki: 0,
+                status: 'Lunas'
+            }));
         }
 
         function createEmptySlot(label) {
@@ -373,6 +344,10 @@
             return snap.exists() ? snap.val() : null;
         }
 
+        async function writeRTDB(path, data) {
+            await set(ref(db, path), data);
+        }
+
         function normalizeList(value) {
             if (Array.isArray(value)) {
                 return value.filter(Boolean);
@@ -386,30 +361,36 @@
             return null;
         }
 
-        async function loadData() {
-            try {
-                const [remoteTenants, remoteZones] = await Promise.all([
-                    fetchRTDB('tenants'),
-                    fetchRTDB('zones')
-                ]);
-                const tenants = normalizeList(remoteTenants);
-                if (tenants && tenants.length) {
-                    localStorage.setItem(TENANT_KEY, JSON.stringify(tenants));
-                }
-                const zones = normalizeList(remoteZones);
-                if (zones && zones.length) {
-                    localStorage.setItem(DATA_KEY, JSON.stringify(zones));
-                    renderStats(zones);
-                    renderGaraj(zones);
-                    return zones;
-                }
-            } catch (e) {
-                console.warn('RTDB sync gagal, guna fallback', e);
+        let tenantData = [];
+        let zoneData = [];
+
+        async function ensureTenants() {
+            const remote = await fetchRTDB('tenants');
+            const normalized = normalizeList(remote);
+            if (normalized && normalized.length) {
+                return normalizeTenants(normalized);
             }
-            const tenants = loadTenantList();
-            const template = getZoneTemplate();
-            const derived = buildDefaultZones(template, tenants);
-            localStorage.setItem(DATA_KEY, JSON.stringify(derived));
+            const seeded = seedTenants();
+            try {
+                await writeRTDB('tenants', seeded);
+            } catch (e) {
+                console.warn('RTDB seed tenants gagal', e);
+            }
+            return seeded;
+        }
+
+        async function ensureZones(tenants) {
+            const remote = await fetchRTDB('zones');
+            const zones = normalizeList(remote);
+            if (zones && zones.length) {
+                return zones;
+            }
+            const derived = buildDefaultZones(Array(5).fill(10), tenants);
+            try {
+                await writeRTDB('zones', derived);
+            } catch (e) {
+                console.warn('RTDB seed zones gagal', e);
+            }
             return derived;
         }
 
@@ -577,24 +558,45 @@
         }
 
         async function hydrate() {
-            const zones = await loadData();
-            renderStats(zones);
-            renderGaraj(zones);
+            try {
+                tenantData = await ensureTenants();
+                zoneData = await ensureZones(tenantData);
+                renderStats(zoneData);
+                renderGaraj(zoneData);
+            } catch (e) {
+                console.warn('Gagal load data Firebase', e);
+            }
             resetView();
         }
 
         hydrate();
 
+        function watchRealtimeUpdates() {
+            onValue(ref(db, 'tenants'), (snap) => {
+                if (!snap.exists()) return;
+                const updated = normalizeList(snap.val());
+                if (!updated) return;
+                tenantData = normalizeTenants(updated);
+            });
+            onValue(ref(db, 'zones'), (snap) => {
+                if (!snap.exists()) return;
+                const updated = normalizeList(snap.val());
+                if (!updated) return;
+                zoneData = updated;
+                renderStats(zoneData);
+                renderGaraj(zoneData);
+                resetView();
+            });
+        }
+
+        watchRealtimeUpdates();
+
         // Export CSV untuk pengguna
         function exportUserCsv() {
-            const tenants = loadTenantList();
-            let zoneData = [];
-            try {
-                const raw = localStorage.getItem(DATA_KEY);
-                if (raw) zoneData = JSON.parse(raw);
-            } catch (e) { zoneData = []; }
+            const tenants = Array.isArray(tenantData) ? tenantData : [];
+            const zones = Array.isArray(zoneData) ? zoneData : [];
             const slotMap = new Map();
-            zoneData.forEach((z, zIdx) => {
+            zones.forEach((z, zIdx) => {
                 (z.garaj || []).forEach((g, gIdx) => {
                     if (g.ic) slotMap.set(g.ic, { z: zIdx, g: gIdx });
                 });
@@ -639,7 +641,6 @@
         const logoutBtn = document.getElementById('logout-user');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', () => {
-                localStorage.removeItem(SESSION_KEY);
                 window.location.href = 'index.html';
             });
         }

@@ -85,7 +85,9 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
         const loginForm = document.getElementById('login-form');
         const alertBox = document.getElementById('alert');
         const adminPanel = document.getElementById('admin-panel');
@@ -99,12 +101,23 @@
         const statKosong = document.getElementById('stat-kosong');
         const snapshotList = document.getElementById('snapshot-list');
 
+        const firebaseConfig = {
+            apiKey: "AIzaSyBwFhbL0lbYcIdejcYHvGR5ZWTZtwH9WaU",
+            authDomain: "collage-parking.firebaseapp.com",
+            projectId: "collage-parking",
+            storageBucket: "collage-parking.firebasestorage.app",
+            messagingSenderId: "948017323214",
+            appId: "1:948017323214:web:30555ce9fddae45593849f",
+            measurementId: "G-R82NJ57P3T",
+            databaseURL: "https://collage-parking-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
         const ACCOUNTS = {
             admin: { password: '1234', name: 'Administrator', role: 'Admin' },
             user: { password: '1234', name: 'Pengguna', role: 'User' }
         };
-        const STORAGE_KEY = 'garage-demo-session';
-        const DATA_KEY = 'garage-data';
 
         function showError(msg) {
             alertBox.textContent = msg;
@@ -114,14 +127,6 @@
         function clearError() {
             alertBox.textContent = '';
             alertBox.classList.remove('visible');
-        }
-
-        function persistSession(username) {
-            localStorage.setItem(STORAGE_KEY, username);
-        }
-
-        function clearSession() {
-            localStorage.removeItem(STORAGE_KEY);
         }
 
         function goToUserPage() {
@@ -215,7 +220,6 @@
             const account = ACCOUNTS[username];
             if (account && password === account.password) {
                 applySession(username, { redirect: true });
-                persistSession(username);
             } else {
                 showError('Login gagal. Cuba admin / 1234 atau user / 1234.');
             }
@@ -226,33 +230,41 @@
             loginForm.classList.remove('hidden');
             loginForm.reset();
             clearError();
-            clearSession();
         });
 
         openAdminBtn.addEventListener('click', () => {
             goToAdminPage();
         });
 
-        // Auto-login if session exists (no redirect to avoid surprise)
-        const savedUser = localStorage.getItem(STORAGE_KEY);
-        if (savedUser && ACCOUNTS[savedUser]) {
-            applySession(savedUser, { redirect: false });
+        function normalizeList(value) {
+            if (Array.isArray(value)) {
+                return value.filter(Boolean);
+            }
+            if (value && typeof value === 'object') {
+                const keys = Object.keys(value);
+                const numeric = keys.every(k => String(Number(k)) === k);
+                const ordered = numeric ? keys.sort((a, b) => Number(a) - Number(b)) : keys;
+                return ordered.map(k => value[k]).filter(Boolean);
+            }
+            return null;
         }
 
-        function hydrateStats() {
+        async function fetchZones() {
+            const snap = await get(ref(db, 'zones'));
+            return snap.exists() ? snap.val() : null;
+        }
+
+        async function hydrateStats() {
             try {
-                const raw = localStorage.getItem(DATA_KEY);
-                if (!raw) return;
-                const parsed = JSON.parse(raw);
-                if (!Array.isArray(parsed)) return;
-                renderStatsFromData(parsed);
-                renderSnapshot(parsed);
+                const remote = await fetchZones();
+                const zones = normalizeList(remote) || [];
+                renderStatsFromData(zones);
+                renderSnapshot(zones);
             } catch (e) {
                 console.warn('Gagal baca data garaj', e);
+                renderSnapshot([]);
             }
         }
-
-        hydrateStats();
     </script>
     <div class="banner-wrap bottom">
         <div class="banner-marquee alt">CREATED BY DYNOZ. • CREATED BY DYNOZ. • CREATED BY DYNOZ. • CREATED BY DYNOZ.</div>

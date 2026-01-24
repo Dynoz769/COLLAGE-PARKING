@@ -42,14 +42,9 @@
         </section>
     </div>
 
-    <script>
-        const STORAGE_KEY = 'garage-demo-session';
-        const TENANT_KEY = 'tenant-data';
-
-        const sessionUser = localStorage.getItem(STORAGE_KEY);
-        if (!sessionUser) {
-            window.location.href = 'login-admin.html';
-        }
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
         const searchInput = document.getElementById('search-input');
         const listEl = document.getElementById('tunggak-list');
@@ -92,31 +87,85 @@
             ['SITI ZURAINI BINTI ZAKARIA','870831035562']
         ];
 
-        function loadTenants() {
-            const raw = localStorage.getItem(TENANT_KEY);
-            if (!raw) {
-                const seeded = tenantBase.map(t => ({
-                    name: t[0],
-                    ic: t[1],
-                    garaj: '',
-                    kereta: 0,
-                    plat: [],
-                    baki: 0,
-                    status: 'Lunas'
-                }));
-                localStorage.setItem(TENANT_KEY, JSON.stringify(seeded));
-                return seeded;
+        const firebaseConfig = {
+            apiKey: "AIzaSyBwFhbL0lbYcIdejcYHvGR5ZWTZtwH9WaU",
+            authDomain: "collage-parking.firebaseapp.com",
+            projectId: "collage-parking",
+            storageBucket: "collage-parking.firebasestorage.app",
+            messagingSenderId: "948017323214",
+            appId: "1:948017323214:web:30555ce9fddae45593849f",
+            measurementId: "G-R82NJ57P3T",
+            databaseURL: "https://collage-parking-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        function normalizeList(value) {
+            if (Array.isArray(value)) {
+                return value.filter(Boolean);
             }
-            try {
-                const parsed = JSON.parse(raw);
-                return Array.isArray(parsed) ? parsed : [];
-            } catch (e) {
-                return [];
+            if (value && typeof value === 'object') {
+                const keys = Object.keys(value);
+                const numeric = keys.every(k => String(Number(k)) === k);
+                const ordered = numeric ? keys.sort((a, b) => Number(a) - Number(b)) : keys;
+                return ordered.map(k => value[k]).filter(Boolean);
             }
+            return null;
         }
 
+        function normalizeTenants(list) {
+            if (!Array.isArray(list)) return [];
+            return list.map(t => ({
+                name: t?.name || '-',
+                ic: t?.ic || '',
+                garaj: t?.garaj || '',
+                kereta: Number(t?.kereta) || 0,
+                plat: Array.isArray(t?.plat) ? t.plat.filter(Boolean) : [],
+                baki: Number(t?.baki) || 0,
+                status: t?.status || ((Number(t?.baki) || 0) > 0 ? 'Tunggak' : 'Lunas')
+            }));
+        }
+
+        function seedTenants() {
+            return tenantBase.map(t => ({
+                name: t[0],
+                ic: t[1],
+                garaj: '',
+                kereta: 0,
+                plat: [],
+                baki: 0,
+                status: 'Lunas'
+            }));
+        }
+
+        async function fetchRTDB(path) {
+            const snap = await get(ref(db, path));
+            return snap.exists() ? snap.val() : null;
+        }
+
+        async function writeRTDB(path, data) {
+            await set(ref(db, path), data);
+        }
+
+        async function ensureTenants() {
+            const remote = await fetchRTDB('tenants');
+            const normalized = normalizeList(remote);
+            if (normalized && normalized.length) {
+                return normalizeTenants(normalized);
+            }
+            const seeded = seedTenants();
+            try {
+                await writeRTDB('tenants', seeded);
+            } catch (e) {
+                console.warn('RTDB seed tenants gagal', e);
+            }
+            return seeded;
+        }
+
+        let tenantData = [];
+
         function renderList(filter = '') {
-            const tenants = loadTenants();
+            const tenants = tenantData;
             const term = filter.toLowerCase();
             const tunggak = tenants.filter(t => {
                 const status = (t.status || '').toLowerCase();
@@ -156,16 +205,32 @@
             });
         }
 
-        renderList();
+        async function hydrate() {
+            try {
+                tenantData = await ensureTenants();
+                renderList();
+            } catch (e) {
+                console.warn('Gagal load data Firebase', e);
+            }
+        }
+
+        hydrate();
 
         if (searchInput) {
             searchInput.addEventListener('input', () => renderList(searchInput.value));
         }
 
+        onValue(ref(db, 'tenants'), (snap) => {
+            if (!snap.exists()) return;
+            const updated = normalizeList(snap.val());
+            if (!updated) return;
+            tenantData = normalizeTenants(updated);
+            renderList(searchInput?.value || '');
+        });
+
         const logoutBtn = document.getElementById('logout');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', () => {
-                localStorage.removeItem(STORAGE_KEY);
                 window.location.href = 'index.html';
             });
         }

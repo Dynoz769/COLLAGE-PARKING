@@ -182,7 +182,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getDatabase, ref, get, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+        import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBwFhbL0lbYcIdejcYHvGR5ZWTZtwH9WaU",
@@ -196,8 +196,6 @@
         };
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const TENANT_SESSION_KEY = 'tenant-ic-session';
-        const TENANT_KEY = 'tenant-data';
         const tenantBase = [
             ['ASMADI BIN HUSSIN','690103036761'],
             ['FATMA NUR LIYANA BINTI ALLUWI','911110036192'],
@@ -240,6 +238,10 @@
             return snap.exists() ? snap.val() : null;
         }
 
+        async function writeRTDB(path, data) {
+            await set(ref(db, path), data);
+        }
+
         function normalizeList(value) {
             if (Array.isArray(value)) {
                 return value.filter(Boolean);
@@ -253,35 +255,29 @@
             return null;
         }
 
-        function loadTenantData() {
-            const raw = localStorage.getItem(TENANT_KEY);
-            if (!raw) {
-                const seeded = tenantBase.map(t => ({
-                    name: t[0],
-                    ic: t[1],
-                    garaj: '',
-                    kereta: 0,
-                    plat: [],
-                    baki: 0,
-                    status: 'Lunas'
-                }));
-                localStorage.setItem(TENANT_KEY, JSON.stringify(seeded));
-                return seeded;
-            }
-            try {
-                const parsed = JSON.parse(raw);
-                return Array.isArray(parsed) ? parsed.map(t => ({
-                    name: t.name || '-',
-                    ic: t.ic || '',
-                    garaj: t.garaj || '',
-                    kereta: Number(t.kereta) || 0,
-                    plat: Array.isArray(t.plat) ? t.plat.filter(Boolean) : [],
-                    baki: Number(t.baki) || 0,
-                    status: t.status || ((Number(t.baki) || 0) > 0 ? 'Tunggak' : 'Lunas')
-                })) : [];
-            } catch (e) {
-                return [];
-            }
+        function normalizeTenants(list) {
+            if (!Array.isArray(list)) return [];
+            return list.map(t => ({
+                name: t?.name || '-',
+                ic: t?.ic || '',
+                garaj: t?.garaj || '',
+                kereta: Number(t?.kereta) || 0,
+                plat: Array.isArray(t?.plat) ? t.plat.filter(Boolean) : [],
+                baki: Number(t?.baki) || 0,
+                status: t?.status || ((Number(t?.baki) || 0) > 0 ? 'Tunggak' : 'Lunas')
+            }));
+        }
+
+        function seedTenants() {
+            return tenantBase.map(t => ({
+                name: t[0],
+                ic: t[1],
+                garaj: '',
+                kereta: 0,
+                plat: [],
+                baki: 0,
+                status: 'Lunas'
+            }));
         }
 
         const loginForm = document.getElementById('tenant-login');
@@ -382,21 +378,22 @@
             paymentPill.classList.toggle('warn', String(status).toLowerCase() !== 'lunas');
         }
 
-        async function syncTenants() {
-            try {
-                const remote = await fetchRTDB('tenants');
-                const normalized = normalizeList(remote);
-                if (normalized && normalized.length) {
-                    localStorage.setItem(TENANT_KEY, JSON.stringify(normalized));
-                    return normalized;
-                }
-            } catch (e) {
-                console.warn('RTDB gagal, guna lokal', e);
+        async function ensureTenants() {
+            const remote = await fetchRTDB('tenants');
+            const normalized = normalizeList(remote);
+            if (normalized && normalized.length) {
+                return normalizeTenants(normalized);
             }
-            return loadTenantData();
+            const seeded = seedTenants();
+            try {
+                await writeRTDB('tenants', seeded);
+            } catch (e) {
+                console.warn('RTDB seed gagal', e);
+            }
+            return seeded;
         }
 
-        let tenantList = await syncTenants();
+        let tenantList = await ensureTenants();
         let icIndexMap = new Map();
 
         function rebuildIndexMap(list) {
@@ -490,7 +487,6 @@
                 return;
             }
             clearError();
-            localStorage.setItem(TENANT_SESSION_KEY, key);
             renderTenant(key, data);
         }
 
@@ -547,11 +543,11 @@
                 if (!snap.exists()) return;
                 const updated = normalizeList(snap.val());
                 if (!updated) return;
-                tenantList = updated;
-                localStorage.setItem(TENANT_KEY, JSON.stringify(updated));
-                rebuildIndexMap(updated);
+                const normalized = normalizeTenants(updated);
+                tenantList = normalized;
+                rebuildIndexMap(normalized);
                 if (currentTenantKey) {
-                    const latest = updated.find(t => t.ic === currentTenantKey);
+                    const latest = normalized.find(t => t.ic === currentTenantKey);
                     if (latest) {
                         currentTenantData = latest;
                         renderTenant(currentTenantKey, latest);
@@ -563,7 +559,6 @@
         }
 
         function resetView() {
-            localStorage.removeItem(TENANT_SESSION_KEY);
             infoSection.classList.add('hidden');
             loginForm.classList.remove('hidden');
             loginForm.reset();
@@ -591,12 +586,6 @@
                     paymentAmount.value = String(max);
                 }
             });
-        }
-
-        const saved = localStorage.getItem(TENANT_SESSION_KEY);
-        if (saved) {
-            const found = tenantList.find(t => t.ic === saved);
-            if (found) renderTenant(saved, found);
         }
 
         watchTenantUpdates();

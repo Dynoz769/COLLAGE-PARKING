@@ -176,12 +176,9 @@
         };
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const STORAGE_KEY = 'garage-demo-session';
-        const DATA_KEY = 'garage-data';
-        const TENANT_KEY = 'tenant-data';
-        const LOG_KEY = 'garage-logs';
         let tenantData = [];
         let zoneData = [];
+        let activityCache = [];
 
         const tenantBase = [
             ['ASMADI BIN HUSSIN','690103036761'],
@@ -223,17 +220,13 @@
         const accountMap = {
             admin: { name: 'Administrator', role: 'Admin' }
         };
-        const sessionUser = localStorage.getItem(STORAGE_KEY);
-
-        if (!sessionUser || !accountMap[sessionUser]) {
-            window.location.href = 'login-admin.html';
-        } else {
-            document.getElementById('admin-name').textContent = accountMap[sessionUser].name;
-            document.getElementById('admin-role').textContent = accountMap[sessionUser].role;
+        const activeAccount = accountMap.admin;
+        if (activeAccount) {
+            document.getElementById('admin-name').textContent = activeAccount.name;
+            document.getElementById('admin-role').textContent = activeAccount.role;
         }
 
         document.getElementById('logout-admin').addEventListener('click', () => {
-            localStorage.removeItem(STORAGE_KEY);
             window.location.href = 'index.html';
         });
 
@@ -241,19 +234,7 @@
             window.location.href = 'user.html';
         });
 
-        function getZoneTemplate() {
-            const raw = localStorage.getItem(DATA_KEY);
-            if (raw) {
-                try {
-                    const parsed = JSON.parse(raw);
-                    if (Array.isArray(parsed) && parsed.length) {
-                        return parsed.map(z => {
-                            const len = (z && Array.isArray(z.garaj)) ? z.garaj.length : 10;
-                            return len > 0 ? len : 10;
-                        });
-                    }
-                } catch (e) { /* ignore */ }
-            }
+        function getDefaultZoneTemplate() {
             return Array(5).fill(10);
         }
 
@@ -279,69 +260,85 @@
             return null;
         }
 
-        function loadDataFromTemplate(tenantList) {
-            const lengths = getZoneTemplate();
+        function loadDataFromTemplate(tenantList, lengths) {
             return buildZonesFromTenants(tenantList, lengths);
         }
 
         function saveData(data) {
-            localStorage.setItem(DATA_KEY, JSON.stringify(data));
             writeRTDB('zones', data).catch(err => console.warn('RTDB zones save failed', err));
         }
 
-        function loadLogs() {
-            const raw = localStorage.getItem(LOG_KEY);
-            if (!raw) return [];
-            try {
-                const parsed = JSON.parse(raw);
-                return Array.isArray(parsed) ? parsed : [];
-            } catch (e) {
-                return [];
-            }
+        function normalizeTenants(list) {
+            if (!Array.isArray(list)) return [];
+            return list.map(t => ({
+                name: t?.name || '-',
+                ic: t?.ic || '',
+                garaj: t?.garaj || '',
+                kereta: Number(t?.kereta) || 0,
+                plat: Array.isArray(t?.plat) ? t.plat.filter(Boolean) : [],
+                baki: Number(t?.baki) || 0,
+                status: t?.status || ((Number(t?.baki) || 0) > 0 ? 'Tunggak' : 'Lunas')
+            }));
         }
 
-        function saveLogs(logs) {
-            localStorage.setItem(LOG_KEY, JSON.stringify(logs));
+        function seedTenants() {
+            return tenantBase.map(t => ({
+                name: t[0],
+                ic: t[1],
+                garaj: '',
+                kereta: 0,
+                plat: [],
+                baki: 0,
+                status: 'Lunas'
+            }));
         }
 
-        function loadTenantData() {
-            const raw = localStorage.getItem(TENANT_KEY);
-            if (!raw) {
-                const seeded = tenantBase.map(t => ({
-                    name: t[0],
-                    ic: t[1],
-                    garaj: '',
-                    kereta: 0,
-                    plat: [],
-                    baki: 0,
-                    status: 'Lunas'
-                }));
-                localStorage.setItem(TENANT_KEY, JSON.stringify(seeded));
-                return seeded;
+        async function ensureTenants() {
+            const remote = await fetchRTDB('tenants');
+            const normalized = normalizeList(remote);
+            if (normalized && normalized.length) {
+                return normalizeTenants(normalized);
             }
+            const seeded = seedTenants();
             try {
-                const parsed = JSON.parse(raw);
-                return Array.isArray(parsed) ? parsed.map(t => ({
-                    name: t.name || '-',
-                    ic: t.ic || '',
-                    garaj: t.garaj || '',
-                    kereta: Number(t.kereta) || 0,
-                    plat: Array.isArray(t.plat) ? t.plat.filter(Boolean) : [],
-                    baki: Number(t.baki) || 0,
-                    status: t.status || ((Number(t.baki) || 0) > 0 ? 'Tunggak' : 'Lunas')
-                })) : [];
+                await writeRTDB('tenants', seeded);
             } catch (e) {
-                return [];
+                console.warn('RTDB tenants seed failed', e);
             }
+            return seeded;
+        }
+
+        async function ensureZones(tenants) {
+            const remote = await fetchRTDB('zones');
+            const zones = normalizeList(remote);
+            if (zones && zones.length) {
+                return zones;
+            }
+            const lengths = getDefaultZoneTemplate();
+            const derived = loadDataFromTemplate(tenants, lengths);
+            saveData(derived);
+            return derived;
+        }
+
+        async function ensureLogs() {
+            const remote = await fetchRTDB('logs');
+            const logs = normalizeList(remote) || [];
+            if (!logs.length) {
+                try {
+                    await writeRTDB('logs', logs);
+                } catch (e) {
+                    console.warn('RTDB logs seed failed', e);
+                }
+            }
+            return logs;
         }
 
         function saveTenantData(list) {
-            localStorage.setItem(TENANT_KEY, JSON.stringify(list));
             writeRTDB('tenants', list).catch(err => console.warn('RTDB tenants save failed', err));
         }
 
         function logActivity(type, message, zoneIdx, garajName) {
-            const logs = loadLogs();
+            const logs = activityCache.slice();
             const entry = {
                 type,
                 message,
@@ -351,13 +348,10 @@
             };
             logs.unshift(entry);
             const trimmed = logs.slice(0, 10);
-            saveLogs(trimmed);
+            activityCache = trimmed;
+            writeRTDB('logs', trimmed).catch(err => console.warn('RTDB logs save failed', err));
             renderActivity(trimmed);
         }
-
-        tenantData = loadTenantData();
-        zoneData = loadDataFromTemplate(tenantData);
-        localStorage.setItem(DATA_KEY, JSON.stringify(zoneData));
 
         const activityList = document.getElementById('activity-list');
 
@@ -468,35 +462,20 @@
 
         function hydrate() {
             renderStats();
-        renderZoneSnapshot();
-        renderActivity(loadLogs());
-    }
+            renderZoneSnapshot();
+            renderActivity(activityCache);
+        }
 
         async function syncFromRTDB() {
             try {
-                const [remoteTenants, remoteZones] = await Promise.all([
-                    fetchRTDB('tenants'),
-                    fetchRTDB('zones')
-                ]);
-                const tenants = normalizeList(remoteTenants);
-                if (tenants && tenants.length) {
-                    tenantData = tenants;
-                    localStorage.setItem(TENANT_KEY, JSON.stringify(tenants));
-                } else {
-                    tenantData = loadTenantData();
-                    await writeRTDB('tenants', tenantData);
-                }
-                const zones = normalizeList(remoteZones);
-                if (zones && zones.length) {
-                    zoneData = zones;
-                    localStorage.setItem(DATA_KEY, JSON.stringify(zones));
-                } else {
-                    zoneData = loadDataFromTemplate(tenantData);
-                    saveData(zoneData);
-                }
+                tenantData = await ensureTenants();
+                zoneData = await ensureZones(tenantData);
+                activityCache = await ensureLogs();
             } catch (e) {
-                console.warn('RTDB sync failed, using local data', e);
-                zoneData = loadDataFromTemplate(tenantData);
+                console.warn('RTDB sync failed', e);
+                tenantData = seedTenants();
+                zoneData = loadDataFromTemplate(tenantData, getDefaultZoneTemplate());
+                activityCache = [];
             }
         }
 
@@ -803,7 +782,7 @@
             saveTenantData(tenantData);
             const templateLengths = zoneData.map(z => z.garaj.length);
             const zonesFromTenant = buildZonesFromTenants(tenantData, templateLengths);
-            localStorage.setItem(DATA_KEY, JSON.stringify(zonesFromTenant));
+            saveData(zonesFromTenant);
             zoneData = zonesFromTenant;
             renderStats();
             renderZoneSnapshot();
