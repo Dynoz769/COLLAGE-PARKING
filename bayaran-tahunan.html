@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overdue List</title>
+    <title>Annual Fee Settings</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="auth-body">
@@ -11,8 +11,8 @@
         <header class="admin-header">
             <div>
                 <p class="eyebrow">Admin</p>
-                <h1>Overdue List</h1>
-                <p class="lede">Teachers with overdue payment status.</p>
+                <h1>Annual Fee Settings</h1>
+                <p class="lede">Set the annual fee for all teachers at once.</p>
             </div>
             <div class="admin-controls">
                 <a class="ghost-btn" href="admin.html">Back to Dashboard</a>
@@ -20,35 +20,54 @@
             </div>
         </header>
 
-        <section class="panel-card">
-            <div class="table-head">
-                <p>Search</p>
-                <span class="hint">Search by name or ID</span>
-            </div>
-            <div class="login-form" style="margin-top:8px;">
-                <div class="field">
-                    <label for="search-input">Search</label>
-                    <input type="search" id="search-input" placeholder="Type name or ID">
-                </div>
+        <section class="stat-grid" style="margin-top:12px;">
+            <div class="stat-card">
+                <p class="label">Total Teachers</p>
+                <p id="total-teachers" class="value">-</p>
+                <p class="hint">In system</p>
             </div>
         </section>
 
-        <section class="panel-card" style="margin-top:12px;">
+        <section class="panel-card">
             <div class="table-head">
-                <p>Overdue List</p>
-                <span class="hint" id="count-label">0 records</span>
+                <p>Annual Amount</p>
+                <span class="hint" id="current-amount">Current amount: -</span>
             </div>
-            <div class="list" id="tunggak-list"></div>
+            <div class="login-form" style="margin-top:8px;">
+                <div class="field">
+                    <label for="annual-amount">Annual fee (RM)</label>
+                    <input type="number" id="annual-amount" min="0" step="1" value="0">
+                </div>
+                <div class="alert" id="bulk-msg"></div>
+                <div class="admin-actions">
+                    <button id="apply-annual" type="button" class="primary-btn">Set for all teachers</button>
+                </div>
+            </div>
         </section>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+        import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-        const searchInput = document.getElementById('search-input');
-        const listEl = document.getElementById('tunggak-list');
-        const countLabel = document.getElementById('count-label');
+        const firebaseConfig = {
+            apiKey: "AIzaSyBwFhbL0lbYcIdejcYHvGR5ZWTZtwH9WaU",
+            authDomain: "collage-parking.firebaseapp.com",
+            projectId: "collage-parking",
+            storageBucket: "collage-parking.firebasestorage.app",
+            messagingSenderId: "948017323214",
+            appId: "1:948017323214:web:30555ce9fddae45593849f",
+            measurementId: "G-R82NJ57P3T",
+            databaseURL: "https://collage-parking-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const annualInput = document.getElementById('annual-amount');
+        const applyBtn = document.getElementById('apply-annual');
+        const msg = document.getElementById('bulk-msg');
+        const currentAmount = document.getElementById('current-amount');
+        const totalTeachersEl = document.getElementById('total-teachers');
 
         const tenantBase = [
             ['ASMADI BIN HUSSIN','690103036761'],
@@ -87,19 +106,6 @@
             ['SITI ZURAINI BINTI ZAKARIA','870831035562']
         ];
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBwFhbL0lbYcIdejcYHvGR5ZWTZtwH9WaU",
-            authDomain: "collage-parking.firebaseapp.com",
-            projectId: "collage-parking",
-            storageBucket: "collage-parking.firebasestorage.app",
-            messagingSenderId: "948017323214",
-            appId: "1:948017323214:web:30555ce9fddae45593849f",
-            measurementId: "G-R82NJ57P3T",
-            databaseURL: "https://collage-parking-default-rtdb.asia-southeast1.firebasedatabase.app/"
-        };
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-
         function normalizeList(value) {
             if (Array.isArray(value)) {
                 return value.filter(Boolean);
@@ -118,11 +124,6 @@
             if (s === 'lunas' || s === 'paid') return 'Paid';
             if (s === 'tunggak' || s === 'overdue' || s === 'due') return 'Overdue';
             return value || '';
-        }
-
-        function formatGarageLabel(label) {
-            if (!label) return '';
-            return String(label).replace(/garaj/gi, 'Garage');
         }
 
         function normalizeTenants(list) {
@@ -167,6 +168,30 @@
             await set(ref(db, path), data);
         }
 
+        async function logActivity(type, message) {
+            let logs = [];
+            try {
+                const remote = await fetchRTDB('logs');
+                logs = normalizeList(remote) || [];
+            } catch (err) {
+                console.warn('RTDB logs read failed', err);
+            }
+            const entry = {
+                type,
+                message,
+                zone: '',
+                garaj: '',
+                timestamp: new Date().toISOString()
+            };
+            logs.unshift(entry);
+            const trimmed = logs.slice(0, 10);
+            try {
+                await writeRTDB('logs', trimmed);
+            } catch (err) {
+                console.warn('RTDB logs save failed', err);
+            }
+        }
+
         async function ensureTenants() {
             const remote = await fetchRTDB('tenants');
             const normalized = normalizeList(remote);
@@ -182,71 +207,73 @@
             return seeded;
         }
 
-        let tenantData = [];
+        function showMsg(text, isError = false) {
+            msg.textContent = text;
+            msg.classList.toggle('error', isError);
+            msg.classList.add('visible');
+            setTimeout(() => msg.classList.remove('visible'), 2200);
+        }
 
-        function renderList(filter = '') {
-            const tenants = tenantData;
-            const term = filter.toLowerCase();
-            const tunggak = tenants.filter(t => {
-                const status = normalizePaymentStatus(t.status);
-                const baki = Number(t.baki) || 0;
-                const isTunggak = status === 'Overdue' || baki > 0;
-                const match = !term || (t.name || '').toLowerCase().includes(term) || (t.ic || '').includes(term);
-                return isTunggak && match;
-            });
-            listEl.innerHTML = '';
-            countLabel.textContent = `${tunggak.length} records`;
-            if (!tunggak.length) {
-                const empty = document.createElement('div');
-                empty.className = 'muted';
-                empty.textContent = 'No overdue records.';
-                listEl.appendChild(empty);
+        function updateCurrentLabel(tenants) {
+            if (!currentAmount) return;
+            if (!tenants.length) {
+                currentAmount.textContent = 'Current amount: -';
+                if (totalTeachersEl) totalTeachersEl.textContent = '0';
                 return;
             }
-            tunggak.forEach(t => {
-                const row = document.createElement('div');
-                row.className = 'row between';
-                const left = document.createElement('div');
-                const title = document.createElement('p');
-                title.className = 'label';
-                title.textContent = t.name || '-';
-                const meta = document.createElement('p');
-                meta.className = 'muted';
-                meta.textContent = `${t.ic || '-'} - ${formatGarageLabel(t.garaj || 'No garage') || 'No garage'}`;
-                left.appendChild(title);
-                left.appendChild(meta);
-                const badge = document.createElement('span');
-                badge.className = 'chip warn';
-                const baki = Number(t.baki) || 0;
-                badge.textContent = baki > 0 ? `Balance: RM ${baki}` : (normalizePaymentStatus(t.status) || 'Overdue');
-                row.appendChild(left);
-                row.appendChild(badge);
-                listEl.appendChild(row);
-            });
+            const values = tenants.map(t => Number(t.tahunan) || 0);
+            const unique = Array.from(new Set(values));
+            if (unique.length === 1) {
+                currentAmount.textContent = `Current amount: RM ${unique[0]}`;
+                if (annualInput) annualInput.value = String(unique[0]);
+            } else {
+                currentAmount.textContent = 'Current amount: Mixed';
+            }
+            if (totalTeachersEl) totalTeachersEl.textContent = String(tenants.length);
+        }
+
+        async function updateZonesTahunan(tenants, amount) {
+            const remote = await fetchRTDB('zones');
+            const zones = normalizeList(remote);
+            if (!zones || !zones.length) return;
+            const map = new Map(tenants.map(t => [t.ic, t]));
+            const updatedZones = zones.map(z => ({
+                ...z,
+                garaj: (z.garaj || []).map(slot => {
+                    if (!slot || !slot.ic || !map.has(slot.ic)) return slot;
+                    return { ...slot, tahunan: amount };
+                })
+            }));
+            await writeRTDB('zones', updatedZones);
         }
 
         async function hydrate() {
             try {
-                tenantData = await ensureTenants();
-                renderList();
+                const tenants = await ensureTenants();
+                updateCurrentLabel(tenants);
             } catch (e) {
                 console.warn('Failed to load Firebase data', e);
+                showMsg('Failed to read Firebase data.', true);
             }
         }
 
-        hydrate();
-
-        if (searchInput) {
-            searchInput.addEventListener('input', () => renderList(searchInput.value));
+        if (applyBtn) {
+            applyBtn.addEventListener('click', async () => {
+                const amount = Math.max(0, Math.floor(Number(annualInput.value) || 0));
+                try {
+                    const tenants = await ensureTenants();
+                    const updated = tenants.map(t => ({ ...t, tahunan: amount }));
+                    await writeRTDB('tenants', updated);
+                    await updateZonesTahunan(updated, amount);
+                    updateCurrentLabel(updated);
+                    await logActivity('update', `Updated annual fee to RM ${amount} for all teachers`);
+                    showMsg('Annual fee updated for all teachers.');
+                } catch (e) {
+                    console.warn('Failed to update annual fee', e);
+                    showMsg('Failed to update data.', true);
+                }
+            });
         }
-
-        onValue(ref(db, 'tenants'), (snap) => {
-            if (!snap.exists()) return;
-            const updated = normalizeList(snap.val());
-            if (!updated) return;
-            tenantData = normalizeTenants(updated);
-            renderList(searchInput?.value || '');
-        });
 
         const logoutBtn = document.getElementById('logout');
         if (logoutBtn) {
@@ -254,6 +281,8 @@
                 window.location.href = 'index.html';
             });
         }
+
+        hydrate();
     </script>
 </body>
 </html>

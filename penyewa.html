@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal Penyewa - Semak IC</title>
+    <title>Teacher Portal - Check ID</title>
     <link rel="stylesheet" href="styles.css">
     <style>
         .tenant-hero {
@@ -83,17 +83,17 @@
 </head>
 <body class="auth-body">
     <div class="banner-wrap">
-        <div class="banner-marquee">PARKING KOLEJ VOKASIONAL PASIR MAS • PARKING KOLEJ VOKASIONAL PASIR MAS • PARKING KOLEJ VOKASIONAL PASIR MAS •</div>
+        <div class="banner-marquee">PASIR MAS VOCATIONAL COLLEGE PARKING • PASIR MAS VOCATIONAL COLLEGE PARKING • PASIR MAS VOCATIONAL COLLEGE PARKING •</div>
     </div>
     <div class="auth-layout">
         <div class="auth-hero tenant-hero">
             <div>
-                <p class="eyebrow">Portal Penyewa</p>
-                <h1>Semak status guna IC</h1>
-                <p class="lede">Masuk dengan nombor IC untuk melihat maklumat guru dan bidang pengajaran (seperti paparan pengguna).</p>
+                <p class="eyebrow">Teacher Portal</p>
+                <h1>Check status with ID</h1>
+                <p class="lede">Sign in with your ID number to view teacher info (same as user view).</p>
             </div>
             <div class="tenant-pill">
-                <span class="pill">Contoh IC: 690103036761</span>
+                <span class="pill">Example ID: 690103036761</span>
                 <span class="pill">911110036192</span>
                 <span class="pill">700311035196</span>
             </div>
@@ -101,57 +101,58 @@
 
         <div class="auth-card">
             <form id="tenant-login" class="login-form">
-                <h2>Log Masuk Penyewa</h2>
+                <h2>Teacher Login</h2>
                 <div class="field">
-                    <label for="ic">No. IC</label>
+                    <label for="ic">ID Number</label>
                     <input type="text" id="ic" name="ic" placeholder="900101-01-1234" autocomplete="off" required>
                 </div>
                 <div class="alert" id="tenant-alert"></div>
-                <button type="submit" class="primary-btn">Masuk</button>
+                <button type="submit" class="primary-btn">Sign in</button>
             </form>
 
             <section id="tenant-info" class="admin-panel tenant-info hidden">
                 <div class="panel-head">
                     <div class="tenant-meta">
-                        <p class="eyebrow">Penyewa</p>
+                        <p class="eyebrow">Teacher</p>
                         <h2 id="tenant-name">-</h2>
                         <p class="muted" id="tenant-ic">-</p>
                     </div>
                     <div class="admin-actions">
                         <span id="tenant-status" class="pill-soft ok">Status</span>
-                        <button id="tenant-logout" type="button" class="ghost-btn">Log Keluar</button>
+                        <button id="tenant-logout" type="button" class="ghost-btn">Logout</button>
                     </div>
                 </div>
 
                 <div class="detail-panel">
-                    <h4>Maklumat Guru</h4>
+                    <h4>Teacher Info</h4>
                     <div class="detail-row">
-                        <span>Nama: <strong id="info-name">-</strong></span>
-                        <span>IC: <strong id="info-ic">-</strong></span>
-                        <span>Zona: <strong id="info-zone">-</strong></span>
-                        <span>Garaj: <strong id="info-garaj">-</strong></span>
-                        <span>Jumlah Kereta: <strong id="info-kereta">-</strong></span>
-                        <span>No Plat: <strong id="info-plat">-</strong></span>
-                        <span>Status Bayaran: <strong id="info-status">-</strong></span>
-                        <span>Baki Bayaran: <strong id="info-baki">-</strong></span>
+                        <span>Name: <strong id="info-name">-</strong></span>
+                        <span>ID: <strong id="info-ic">-</strong></span>
+                        <span>Zone: <strong id="info-zone">-</strong></span>
+                        <span>Garage: <strong id="info-garaj">-</strong></span>
+                        <span>Cars: <strong id="info-kereta">-</strong></span>
+                        <span>Plates: <strong id="info-plat">-</strong></span>
+                        <span>Payment Status: <strong id="info-status">-</strong></span>
+                        <span>Outstanding Balance: <strong id="info-baki">-</strong></span>
+                        <span>Annual Fee: <strong id="info-tahunan">-</strong></span>
                     </div>
                 </div>
                 <div class="detail-panel payment-panel">
                     <div class="payment-head">
                         <div>
-                            <h4>Bayaran Garaj</h4>
-                            <p class="muted">Pembayaran manual. Status dikemaskini oleh admin selepas semakan.</p>
+                            <h4>Garage Payment</h4>
+                            <p class="muted">Manual payment. Status is updated by admin after review.</p>
                         </div>
-                        <span id="payment-pill" class="pill-soft ok">Lunas</span>
+                        <span id="payment-pill" class="pill-soft ok">Paid</span>
                     </div>
                     <div class="payment-actions">
                         <div class="field">
-                            <label for="payment-amount">Jumlah bayar (RM)</label>
+                            <label for="payment-amount">Amount to pay (RM)</label>
                             <input type="number" id="payment-amount" min="1" step="1" value="0">
                         </div>
-                        <button type="button" id="pay-now" class="primary-btn">Buka Pautan Bayar</button>
+                        <button type="button" id="pay-now" class="primary-btn">Open Payment Link</button>
                     </div>
-                    <p class="hint" id="payment-hint">Baki semasa: RM 0</p>
+                    <p class="hint" id="payment-hint">Current balance: RM 0</p>
                     <div class="alert" id="payment-msg"></div>
                 </div>
             </section>
@@ -160,23 +161,23 @@
 
     <div class="floating-actions">
         <a class="ghost-btn" href="index.html">Back</a>
-        <button type="button" id="show-map" class="ghost-btn">Lihat Peta</button>
+        <button type="button" id="show-map" class="ghost-btn">View Map</button>
     </div>
 
     <div class="map-viewer" id="map-viewer" aria-hidden="true">
         <div class="map-toolbar">
             <div>
-                <strong>Peta Kolej</strong>
-                <span class="map-hint">Guna scroll/cubitan untuk zum; seret imej untuk alih.</span>
+                <strong>Campus Map</strong>
+                <span class="map-hint">Use scroll/pinch to zoom; drag to pan.</span>
             </div>
             <div class="map-controls">
                 <button class="map-btn" id="zoom-out" type="button">-</button>
                 <button class="map-btn" id="zoom-in" type="button">+</button>
-                <button class="map-btn ghost" id="close-map" type="button">Tutup</button>
+                <button class="map-btn ghost" id="close-map" type="button">Close</button>
             </div>
         </div>
         <div class="map-stage" id="map-stage">
-            <img id="campus-map" src="map-kolej.jpg" alt="Peta Kolej" loading="lazy">
+            <img id="campus-map" src="map-kolej.jpg" alt="Campus Map" loading="lazy">
         </div>
     </div>
 
@@ -255,6 +256,18 @@
             return null;
         }
 
+        function normalizePaymentStatus(value) {
+            const s = String(value || '').toLowerCase();
+            if (s === 'lunas' || s === 'paid') return 'Paid';
+            if (s === 'tunggak' || s === 'overdue' || s === 'due') return 'Overdue';
+            return value || '';
+        }
+
+        function formatGarageLabel(label) {
+            if (!label) return '';
+            return String(label).replace(/garaj/gi, 'Garage');
+        }
+
         function normalizeTenants(list) {
             if (!Array.isArray(list)) return [];
             return list.map(t => ({
@@ -263,8 +276,12 @@
                 garaj: t?.garaj || '',
                 kereta: Number(t?.kereta) || 0,
                 plat: Array.isArray(t?.plat) ? t.plat.filter(Boolean) : [],
+                autoAssign: t?.autoAssign !== false,
+                tahunan: Number(t?.tahunan) || 0,
                 baki: Number(t?.baki) || 0,
-                status: t?.status || ((Number(t?.baki) || 0) > 0 ? 'Tunggak' : 'Lunas')
+                status: normalizePaymentStatus(t?.status || ((Number(t?.baki) || 0) > 0 ? 'Overdue' : 'Paid')),
+                notes: typeof t?.notes === 'string' ? t.notes : (t?.notes ? String(t.notes) : ''),
+                paymentUpdatedAt: t?.paymentUpdatedAt || ''
             }));
         }
 
@@ -275,8 +292,12 @@
                 garaj: '',
                 kereta: 0,
                 plat: [],
+                autoAssign: true,
+                tahunan: 0,
                 baki: 0,
-                status: 'Lunas'
+                status: 'Paid',
+                notes: '',
+                paymentUpdatedAt: ''
             }));
         }
 
@@ -297,6 +318,7 @@
         const infoPlat = document.getElementById('info-plat');
         const infoStatus = document.getElementById('info-status');
         const infoBaki = document.getElementById('info-baki');
+        const infoTahunan = document.getElementById('info-tahunan');
         const paymentAmount = document.getElementById('payment-amount');
         const payNowBtn = document.getElementById('pay-now');
         const paymentHint = document.getElementById('payment-hint');
@@ -353,7 +375,7 @@
         function updatePaymentUI(data) {
             if (!paymentAmount || !payNowBtn || !paymentHint || !paymentPill) return;
             const baki = Math.max(0, Number(data?.baki) || 0);
-            const status = data?.status || (baki > 0 ? 'Tunggak' : 'Lunas');
+            const status = normalizePaymentStatus(data?.status || (baki > 0 ? 'Overdue' : 'Paid'));
             const isManual = PAYMENT_CONFIG.mode === 'manual';
             const configured = isPaymentConfigured();
             paymentAmount.value = baki ? String(baki) : '0';
@@ -362,20 +384,20 @@
             paymentAmount.disabled = baki <= 0;
             payNowBtn.disabled = baki <= 0 || !configured;
             payNowBtn.textContent = baki <= 0
-                ? 'Tiada Baki'
-                : (isManual ? 'Buka Pautan Bayar' : 'Bayar Sekarang');
+                ? 'No Balance'
+                : (isManual ? 'Open Payment Link' : 'Pay Now');
             if (baki <= 0) {
-                paymentHint.textContent = 'Tiada baki tertunggak.';
+                paymentHint.textContent = 'No outstanding balance.';
             } else if (!configured) {
-                paymentHint.textContent = 'Pautan bayaran belum diset. Sila hubungi admin.';
+                paymentHint.textContent = 'Payment link is not set. Please contact admin.';
             } else if (isManual) {
-                paymentHint.textContent = `Baki semasa: RM ${baki}. Tekan untuk buka pautan bayaran.`;
+                paymentHint.textContent = `Current balance: RM ${baki}. Click to open the payment link.`;
             } else {
-                paymentHint.textContent = `Baki semasa: RM ${baki}. Klik bayar untuk teruskan.`;
+                paymentHint.textContent = `Current balance: RM ${baki}. Click pay to continue.`;
             }
             paymentPill.textContent = status;
-            paymentPill.classList.toggle('ok', String(status).toLowerCase() === 'lunas');
-            paymentPill.classList.toggle('warn', String(status).toLowerCase() !== 'lunas');
+            paymentPill.classList.toggle('ok', status === 'Paid');
+            paymentPill.classList.toggle('warn', status !== 'Paid');
         }
 
         async function ensureTenants() {
@@ -388,7 +410,7 @@
             try {
                 await writeRTDB('tenants', seeded);
             } catch (e) {
-                console.warn('RTDB seed gagal', e);
+                console.warn('RTDB seed failed', e);
             }
             return seeded;
         }
@@ -415,42 +437,42 @@
         if (paymentSuccess) {
             paymentNotice = {
                 message: PAYMENT_CONFIG.mode === 'auto'
-                    ? 'Bayaran berjaya. Status akan dikemaskini automatik.'
-                    : 'Bayaran diterima. Status akan dikemaskini oleh admin.',
+                    ? 'Payment successful. Status will update automatically.'
+                    : 'Payment received. Status will be updated by admin.',
                 isError: false
             };
         } else if (paymentFailed) {
-            paymentNotice = { message: 'Bayaran gagal atau dibatalkan.', isError: true };
+            paymentNotice = { message: 'Payment failed or was cancelled.', isError: true };
         }
         if (paymentStatus) {
             window.history.replaceState({}, document.title, window.location.pathname);
         }
 
         function setStatus(status) {
-            const normalized = (status || '').toLowerCase();
-            const isLunas = normalized === 'lunas';
-            statusBadge.textContent = status || 'Rekod ditemui';
+            const normalized = normalizePaymentStatus(status);
+            const isLunas = normalized === 'Paid';
+            statusBadge.textContent = normalized || 'Record found';
             statusBadge.classList.remove('ok', 'warn');
             statusBadge.classList.add(isLunas ? 'ok' : 'warn');
             if (infoStatus) {
-                infoStatus.textContent = status || '-';
+                infoStatus.textContent = normalized || '-';
             }
         }
 
         function deriveSlot(key, garajLabel) {
             if (garajLabel) {
                 const zoneMatch = garajLabel.match(/Zone\s*(\d+)/i);
-                const garajMatch = garajLabel.match(/Garaj\s*(\d+)/i);
+                const garajMatch = garajLabel.match(/(?:Garaj|Garage)\s*(\d+)/i);
                 return {
                     zone: zoneMatch ? `Zone ${zoneMatch[1]}` : '-',
-                    garaj: garajMatch ? `Garaj ${garajMatch[1]}` : garajLabel
+                    garaj: garajMatch ? `Garage ${garajMatch[1]}` : garajLabel
                 };
             }
             const idx = icIndexMap.has(key) ? icIndexMap.get(key) : -1;
             if (idx === -1) return { zone: '-', garaj: '-' };
             return {
                 zone: `Zone ${((idx % 5) + 1)}`,
-                garaj: `Garaj ${((idx % 10) + 1)}`
+                garaj: `Garage ${((idx % 10) + 1)}`
             };
         }
 
@@ -463,13 +485,14 @@
             infoName.textContent = data.name || '-';
             infoIc.textContent = data.ic || '-';
             infoZone.textContent = slot.zone || '-';
-            infoGaraj.textContent = slot.garaj || data.garaj || '-';
+            infoGaraj.textContent = formatGarageLabel(slot.garaj || data.garaj || '-') || '-';
             const keretaCount = data.garaj ? 1 : 0;
             if (infoKereta) infoKereta.textContent = data.kereta ?? keretaCount;
             if (infoPlat) infoPlat.textContent = (data.plat || []).join(', ') || data.ic || '-';
-            infoStatus.textContent = data.status || 'Lunas';
+            infoStatus.textContent = normalizePaymentStatus(data.status) || 'Paid';
             if (infoBaki) infoBaki.textContent = `RM ${data.baki ?? 0}`;
-            setStatus(data.status || (data.baki > 0 ? 'Tunggak' : 'Lunas'));
+            if (infoTahunan) infoTahunan.textContent = `RM ${data.tahunan ?? 0}`;
+            setStatus(data.status || (data.baki > 0 ? 'Overdue' : 'Paid'));
             updatePaymentUI(data);
             if (paymentNotice) {
                 showPaymentMessage(paymentNotice.message, paymentNotice.isError);
@@ -483,7 +506,7 @@
             const key = normaliseIC(icValue);
             const data = tenantList.find(t => t.ic === key);
             if (!data) {
-                showError('IC tidak ditemui dalam rekod. Cuba semula atau hubungi admin.');
+                showError('ID not found. Try again or contact admin.');
                 return;
             }
             clearError();
@@ -492,27 +515,27 @@
 
         async function startPayment() {
             if (!currentTenantData) {
-                showPaymentMessage('Sila log masuk dahulu.', true);
+                showPaymentMessage('Please sign in first.', true);
                 return;
             }
             if (!isPaymentConfigured()) {
-                showPaymentMessage('Pautan bayaran belum diset. Sila hubungi admin.', true);
+                showPaymentMessage('Payment link is not set. Please contact admin.', true);
                 return;
             }
             const amount = Math.floor(Number(paymentAmount?.value) || 0);
             if (PAYMENT_CONFIG.mode === 'manual') {
                 window.open(PAYMENT_CONFIG.paymentUrl, '_blank', 'noopener');
-                showPaymentMessage('Sila lengkapkan bayaran dan maklumkan admin.', false);
+                showPaymentMessage('Please complete payment and inform admin.', false);
                 return;
             }
             if (!amount || amount <= 0) {
-                showPaymentMessage('Jumlah bayar tidak sah.', true);
+                showPaymentMessage('Invalid payment amount.', true);
                 return;
             }
             try {
                 if (payNowBtn) payNowBtn.disabled = true;
                 if (paymentAmount) paymentAmount.disabled = true;
-                showPaymentMessage('Sediakan bil pembayaran...', false);
+                showPaymentMessage('Preparing payment bill...', false);
                 const response = await fetch(PAYMENT_CONFIG.createEndpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -527,12 +550,12 @@
                 }
                 const payload = await response.json();
                 if (!payload || !payload.url) {
-                    throw new Error('URL pembayaran tidak sah.');
+                    throw new Error('Invalid payment URL.');
                 }
                 window.location.href = payload.url;
             } catch (err) {
-                console.warn('Pembayaran gagal', err);
-                showPaymentMessage('Gagal buka pembayaran. Cuba lagi.', true);
+                console.warn('Payment failed', err);
+                showPaymentMessage('Failed to open payment. Try again.', true);
                 if (payNowBtn) payNowBtn.disabled = false;
                 if (paymentAmount) paymentAmount.disabled = false;
             }
@@ -554,7 +577,7 @@
                     }
                 }
             }, (err) => {
-                console.warn('Gagal dengar kemaskini tenant', err);
+                console.warn('Failed to listen for tenant updates', err);
             });
         }
 
@@ -590,7 +613,7 @@
 
         watchTenantUpdates();
 
-        // Map viewer (peta kolej)
+        // Map viewer (campus map)
         const mapViewer = document.getElementById('map-viewer');
         const mapStage = document.getElementById('map-stage');
         const mapImg = document.getElementById('campus-map');

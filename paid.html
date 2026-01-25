@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overdue List</title>
+    <title>Paid List</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="auth-body">
@@ -11,8 +11,8 @@
         <header class="admin-header">
             <div>
                 <p class="eyebrow">Admin</p>
-                <h1>Overdue List</h1>
-                <p class="lede">Teachers with overdue payment status.</p>
+                <h1>Paid List</h1>
+                <p class="lede">Teachers with settled payment status.</p>
             </div>
             <div class="admin-controls">
                 <a class="ghost-btn" href="admin.html">Back to Dashboard</a>
@@ -35,10 +35,10 @@
 
         <section class="panel-card" style="margin-top:12px;">
             <div class="table-head">
-                <p>Overdue List</p>
+                <p>Paid List</p>
                 <span class="hint" id="count-label">0 records</span>
             </div>
-            <div class="list" id="tunggak-list"></div>
+            <div class="list" id="paid-list"></div>
         </section>
     </div>
 
@@ -47,7 +47,7 @@
         import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
         const searchInput = document.getElementById('search-input');
-        const listEl = document.getElementById('tunggak-list');
+        const listEl = document.getElementById('paid-list');
         const countLabel = document.getElementById('count-label');
 
         const tenantBase = [
@@ -187,23 +187,24 @@
         function renderList(filter = '') {
             const tenants = tenantData;
             const term = filter.toLowerCase();
-            const tunggak = tenants.filter(t => {
+            const paid = tenants.filter(t => {
                 const status = normalizePaymentStatus(t.status);
                 const baki = Number(t.baki) || 0;
-                const isTunggak = status === 'Overdue' || baki > 0;
+                const hasGarage = !!(t.garaj && String(t.garaj).trim());
+                const isPaid = status === 'Paid' && baki <= 0 && hasGarage;
                 const match = !term || (t.name || '').toLowerCase().includes(term) || (t.ic || '').includes(term);
-                return isTunggak && match;
+                return isPaid && match;
             });
             listEl.innerHTML = '';
-            countLabel.textContent = `${tunggak.length} records`;
-            if (!tunggak.length) {
+            countLabel.textContent = `${paid.length} records`;
+            if (!paid.length) {
                 const empty = document.createElement('div');
                 empty.className = 'muted';
-                empty.textContent = 'No overdue records.';
+                empty.textContent = 'No paid records.';
                 listEl.appendChild(empty);
                 return;
             }
-            tunggak.forEach(t => {
+            paid.forEach(t => {
                 const row = document.createElement('div');
                 row.className = 'row between';
                 const left = document.createElement('div');
@@ -216,9 +217,8 @@
                 left.appendChild(title);
                 left.appendChild(meta);
                 const badge = document.createElement('span');
-                badge.className = 'chip warn';
-                const baki = Number(t.baki) || 0;
-                badge.textContent = baki > 0 ? `Balance: RM ${baki}` : (normalizePaymentStatus(t.status) || 'Overdue');
+                badge.className = 'chip ok';
+                badge.textContent = 'Paid';
                 row.appendChild(left);
                 row.appendChild(badge);
                 listEl.appendChild(row);

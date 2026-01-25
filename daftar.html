@@ -3,38 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daftar Guru Baharu</title>
+    <title>Register New Teacher</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="auth-body">
     <div class="banner-wrap">
-        <div class="banner-marquee">PARKING KOLEJ VOKASIONAL PASIR MAS • PARKING KOLEJ VOKASIONAL PASIR MAS • PARKING KOLEJ VOKASIONAL PASIR MAS •</div>
+        <div class="banner-marquee">PASIR MAS VOCATIONAL COLLEGE PARKING • PASIR MAS VOCATIONAL COLLEGE PARKING • PASIR MAS VOCATIONAL COLLEGE PARKING •</div>
     </div>
     <div class="auth-layout">
-        <div class="auth-hero">
-            <p class="eyebrow">Admin</p>
-            <h1>Daftar Guru Baharu</h1>
-            <p class="lede">Tambah pengguna penyewa baharu dengan nama dan IC. Data akan ditambah ke senarai penyewa.</p>
-        </div>
-
-        <div class="auth-card">
-            <div class="admin-actions" style="justify-content:flex-end; margin-bottom:6px;">
-                <a class="ghost-btn" href="admin.html">Kembali ke Admin</a>
+            <div class="auth-hero">
+                <p class="eyebrow">Admin</p>
+                <h1>Register New Teacher</h1>
+                <p class="lede">Add a new teacher with name and ID. The data will be added to the teacher list.</p>
             </div>
-            <form id="daftar-form" class="login-form">
-                <div class="field">
-                    <label for="nama">Nama</label>
-                    <input type="text" id="nama" name="nama" required placeholder="Nama penuh">
+
+            <div class="auth-card">
+                <div class="admin-actions" style="justify-content:flex-end; margin-bottom:6px;">
+                    <a class="ghost-btn" href="admin.html">Back to Admin</a>
                 </div>
-                <div class="field">
-                    <label for="ic">IC</label>
-                    <input type="text" id="ic" name="ic" required placeholder="cth: 690103036761" autocomplete="off">
-                </div>
-                <div class="alert" id="msg"></div>
-                <button type="submit" class="primary-btn">Simpan</button>
-            </form>
+                <form id="daftar-form" class="login-form">
+                    <div class="field">
+                        <label for="nama">Name</label>
+                        <input type="text" id="nama" name="nama" required placeholder="Full name">
+                    </div>
+                    <div class="field">
+                        <label for="ic">ID Number</label>
+                        <input type="text" id="ic" name="ic" required placeholder="e.g. 690103036761" autocomplete="off">
+                    </div>
+                    <div class="alert" id="msg"></div>
+                    <button type="submit" class="primary-btn">Save</button>
+                </form>
+            </div>
         </div>
-    </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -100,6 +100,30 @@
             await set(ref(db, path), data);
         }
 
+        async function logActivity(type, message) {
+            let logs = [];
+            try {
+                const remote = await fetchRTDB('logs');
+                logs = normalizeList(remote) || [];
+            } catch (err) {
+                console.warn('RTDB logs read failed', err);
+            }
+            const entry = {
+                type,
+                message,
+                zone: '',
+                garaj: '',
+                timestamp: new Date().toISOString()
+            };
+            logs.unshift(entry);
+            const trimmed = logs.slice(0, 10);
+            try {
+                await writeRTDB('logs', trimmed);
+            } catch (err) {
+                console.warn('RTDB logs save failed', err);
+            }
+        }
+
         function normalizeList(value) {
             if (Array.isArray(value)) {
                 return value.filter(Boolean);
@@ -113,6 +137,13 @@
             return null;
         }
 
+        function normalizePaymentStatus(value) {
+            const s = String(value || '').toLowerCase();
+            if (s === 'lunas' || s === 'paid') return 'Paid';
+            if (s === 'tunggak' || s === 'overdue' || s === 'due') return 'Overdue';
+            return value || '';
+        }
+
         function normalizeTenants(list) {
             if (!Array.isArray(list)) return [];
             return list.map(t => ({
@@ -121,8 +152,12 @@
                 garaj: t?.garaj || '',
                 kereta: Number(t?.kereta) || 0,
                 plat: Array.isArray(t?.plat) ? t.plat.filter(Boolean) : [],
+                autoAssign: t?.autoAssign !== false,
+                tahunan: Number(t?.tahunan) || 0,
                 baki: Number(t?.baki) || 0,
-                status: t?.status || ((Number(t?.baki) || 0) > 0 ? 'Tunggak' : 'Lunas')
+                status: normalizePaymentStatus(t?.status || ((Number(t?.baki) || 0) > 0 ? 'Overdue' : 'Paid')),
+                notes: typeof t?.notes === 'string' ? t.notes : (t?.notes ? String(t.notes) : ''),
+                paymentUpdatedAt: t?.paymentUpdatedAt || ''
             }));
         }
 
@@ -133,8 +168,12 @@
                 garaj: '',
                 kereta: 0,
                 plat: [],
+                autoAssign: true,
+                tahunan: 0,
                 baki: 0,
-                status: 'Lunas'
+                status: 'Paid',
+                notes: '',
+                paymentUpdatedAt: ''
             }));
         }
 
@@ -177,15 +216,15 @@
             const nama = form.nama.value.trim();
             const ic = form.ic.value.replace(/\D/g, '');
             if (!nama || !ic) {
-                showMsg('Nama dan IC diperlukan.', true);
+                showMsg('Name and ID are required.', true);
                 return;
             }
             let tenants = [];
             try {
                 tenants = await ensureTenants();
             } catch (err) {
-                console.warn('Gagal baca tenants', err);
-                showMsg('Gagal baca data Firebase.', true);
+                console.warn('Failed to read tenants', err);
+                showMsg('Failed to read Firebase data.', true);
                 return;
             }
             const exists = tenants.find(t => (t.ic || '') === ic);
@@ -193,11 +232,12 @@
                 exists.name = nama;
                 try {
                     await saveTenantData(tenants);
-                    showMsg('IC sudah ada. Nama dikemas kini.');
+                    await logActivity('update', `Updated teacher ${nama}`);
+                    showMsg('ID already exists. Name updated.');
                     form.reset();
                 } catch (err) {
                     console.warn('RTDB tenants save failed', err);
-                    showMsg('Gagal simpan ke Firebase.', true);
+                    showMsg('Failed to save to Firebase.', true);
                 }
             } else {
                 tenants.push({
@@ -206,16 +246,21 @@
                     garaj: '',
                     kereta: 0,
                     plat: [],
+                    autoAssign: true,
+                    tahunan: 0,
                     baki: 0,
-                    status: 'Lunas'
+                    status: 'Paid',
+                    notes: '',
+                    paymentUpdatedAt: ''
                 });
                 try {
                     await saveTenantData(tenants);
-                    showMsg('Guru baharu berjaya didaftarkan.');
+                    await logActivity('add', `Registered new teacher ${nama}`);
+                    showMsg('New teacher registered successfully.');
                     form.reset();
                 } catch (err) {
                     console.warn('RTDB tenants save failed', err);
-                    showMsg('Gagal simpan ke Firebase.', true);
+                    showMsg('Failed to save to Firebase.', true);
                 }
             }
         });

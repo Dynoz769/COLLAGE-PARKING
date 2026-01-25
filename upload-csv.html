@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Teacher Import</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="auth-body">
+    <div class="page admin-page">
+        <header class="admin-header">
+            <div>
+                <p class="eyebrow">Admin</p>
+                <h1>CSV Teacher Import</h1>
+                <p class="lede">Upload an Excel CSV file to add teachers in bulk.</p>
+            </div>
+            <div class="admin-controls">
+                <a class="ghost-btn" href="admin.html">Back to Dashboard</a>
+                <button id="logout" class="ghost-btn" type="button">Logout</button>
+            </div>
+        </header>
+
+        <section class="panel-card">
+            <div class="table-head">
+                <p>Upload CSV</p>
+                <span class="hint">Columns: name, ic, notes (optional)</span>
+            </div>
+            <div class="login-form" style="margin-top:8px;">
+                <div class="field">
+                    <label for="csv-file">Select CSV file</label>
+                    <input type="file" id="csv-file" accept=".csv,text/csv">
+                </div>
+                <div class="alert" id="csv-msg"></div>
+                <div class="admin-actions">
+                    <button id="import-btn" type="button" class="primary-btn" disabled>Import Teachers</button>
+                </div>
+                <p class="hint" id="csv-summary">No file selected.</p>
+            </div>
+        </section>
+
+        <section class="panel-card" style="margin-top:12px;">
+            <div class="table-head">
+                <p>Preview</p>
+                <span class="hint">First 10 rows</span>
+            </div>
+            <div class="list" id="preview-list"></div>
+        </section>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+        const csvInput = document.getElementById('csv-file');
+        const importBtn = document.getElementById('import-btn');
+        const summaryEl = document.getElementById('csv-summary');
+        const previewList = document.getElementById('preview-list');
+        const msg = document.getElementById('csv-msg');
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBwFhbL0lbYcIdejcYHvGR5ZWTZtwH9WaU",
+            authDomain: "collage-parking.firebaseapp.com",
+            projectId: "collage-parking",
+            storageBucket: "collage-parking.firebasestorage.app",
+            messagingSenderId: "948017323214",
+            appId: "1:948017323214:web:30555ce9fddae45593849f",
+            measurementId: "G-R82NJ57P3T",
+            databaseURL: "https://collage-parking-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const tenantBase = [
+            ['ASMADI BIN HUSSIN','690103036761'],
+            ['FATMA NUR LIYANA BINTI ALLUWI','911110036192'],
+            ['HASNIAH BINTI MOHAMED','700311035196'],
+            ['KAMARIAH BINTI KAMAROLZAMAN','710714035296'],
+            ['KAMARUL BAKRI BIN ABDULLAH','701027035169'],
+            ['MAHANI BINTI MOHAMAD','780101038164'],
+            ['MAHASHIM BIN BAKAR','661014035289'],
+            ['MD KHAIRULLIZAM BIN CHE IDERIS','860803235277'],
+            ['MOHD KHAIRILLAH BIN IBRAHIM (KJ)','680830035037'],
+            ['MOHD RIDUAN BIN KAMARUDDIN','760315035059'],
+            ['MOHD SOBRI BIN ZAKARIA','710624035559'],
+            ['MOHD ZAIN BIN YAACOB','730706035243'],
+            ['NAZERI BIN MUHAMAD','740202035011'],
+            ['NOOR AISYAH BINTI MUDA','740622115384'],
+            ['NOORHADIANI BINTI CHE SU','800711035644'],
+            ['NORAZIAN BINTI MAT DAUD','731101035026'],
+            ['NORFADHILLAH  BINTI MOHAMAD','800714035818'],
+            ['NORFAIZATU AKEMA BINTI ZAKARIA','900710035018'],
+            ['NORHAYATI BINTI OMAR','770602037056'],
+            ['NORIYAH BINTI DOLLAH @ ABDULLAH','720926035342'],
+            ['NUR WAHIDA AMALIN BINTI MOHD RAFI','910611035396'],
+            ['NURHASYYATI BINTI ZAHRI','920526035956'],
+            ['NURUL AIDA BINTI REDZUWAN','811221035098'],
+            ['NURUL FADZIHA BINTI AHMAD','801123035298'],
+            ['ROHAFZAN BINTI MUHAMMAD ','760318035038'],
+            ['ROHANA BINTI ABDUL RAHIM','661207035250'],
+            ['ROS ADURA BINTI KAMARUDDIN','740522035168'],
+            ['ROSMA BINTI ZAINUDEEN','771120045664'],
+            ['ROSMAN BIN ABDUL KADIR','760904035137'],
+            ['RUSYDA PEK BINTI ABDULLAH @ PEK WEE ENG','700908105388'],
+            ['SALWANI BINTI ABDULLAZIZ','790104035902'],
+            ['SHAHRI LAILA BINTI MOHD NOR','840630035964'],
+            ['SHARIFAH BINTI HUSSIN','710815035586'],
+            ['SITI ZURAINI BINTI ZAKARIA','870831035562']
+        ];
+
+        function showMsg(text, isError = false) {
+            msg.textContent = text;
+            msg.classList.toggle('error', isError);
+            msg.classList.add('visible');
+            setTimeout(() => msg.classList.remove('visible'), 2600);
+        }
+
+        async function fetchRTDB(path) {
+            const snap = await get(ref(db, path));
+            return snap.exists() ? snap.val() : null;
+        }
+
+        async function writeRTDB(path, data) {
+            await set(ref(db, path), data);
+        }
+
+        async function logActivity(type, message) {
+            let logs = [];
+            try {
+                const remote = await fetchRTDB('logs');
+                logs = normalizeList(remote) || [];
+            } catch (err) {
+                console.warn('RTDB logs read failed', err);
+            }
+            const entry = {
+                type,
+                message,
+                zone: '',
+                garaj: '',
+                timestamp: new Date().toISOString()
+            };
+            logs.unshift(entry);
+            const trimmed = logs.slice(0, 10);
+            try {
+                await writeRTDB('logs', trimmed);
+            } catch (err) {
+                console.warn('RTDB logs save failed', err);
+            }
+        }
+
+        function normalizeList(value) {
+            if (Array.isArray(value)) {
+                return value.filter(Boolean);
+            }
+            if (value && typeof value === 'object') {
+                const keys = Object.keys(value);
+                const numeric = keys.every(k => String(Number(k)) === k);
+                const ordered = numeric ? keys.sort((a, b) => Number(a) - Number(b)) : keys;
+                return ordered.map(k => value[k]).filter(Boolean);
+            }
+            return null;
+        }
+
+        function normalizePaymentStatus(value) {
+            const s = String(value || '').toLowerCase();
+            if (s === 'lunas' || s === 'paid') return 'Paid';
+            if (s === 'tunggak' || s === 'overdue' || s === 'due') return 'Overdue';
+            return value || '';
+        }
+
+        function normalizeTenants(list) {
+            if (!Array.isArray(list)) return [];
+            return list.map(t => ({
+                name: t?.name || '-',
+                ic: t?.ic || '',
+                garaj: t?.garaj || '',
+                kereta: Number(t?.kereta) || 0,
+                plat: Array.isArray(t?.plat) ? t.plat.filter(Boolean) : [],
+                autoAssign: t?.autoAssign !== false,
+                tahunan: Number(t?.tahunan) || 0,
+                baki: Number(t?.baki) || 0,
+                status: normalizePaymentStatus(t?.status || ((Number(t?.baki) || 0) > 0 ? 'Overdue' : 'Paid')),
+                notes: typeof t?.notes === 'string' ? t.notes : (t?.notes ? String(t.notes) : ''),
+                paymentUpdatedAt: t?.paymentUpdatedAt || ''
+            }));
+        }
+
+        function seedTenants() {
+            return tenantBase.map(t => ({
+                name: t[0],
+                ic: t[1],
+                garaj: '',
+                kereta: 0,
+                plat: [],
+                autoAssign: true,
+                tahunan: 0,
+                baki: 0,
+                status: 'Paid',
+                notes: '',
+                paymentUpdatedAt: ''
+            }));
+        }
+
+        async function ensureTenants() {
+            const remote = await fetchRTDB('tenants');
+            const normalized = normalizeList(remote);
+            if (normalized && normalized.length) {
+                return normalizeTenants(normalized);
+            }
+            const seeded = seedTenants();
+            try {
+                await writeRTDB('tenants', seeded);
+            } catch (e) {
+                console.warn('RTDB seed tenants failed', e);
+            }
+            return seeded;
+        }
+
+        function parseCsv(text) {
+            const rows = [];
+            let row = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < text.length; i += 1) {
+                const char = text[i];
+                if (inQuotes) {
+                    if (char === '"') {
+                        if (text[i + 1] === '"') {
+                            current += '"';
+                            i += 1;
+                        } else {
+                            inQuotes = false;
+                        }
+                    } else {
+                        current += char;
+                    }
+                } else if (char === '"') {
+                    inQuotes = true;
+                } else if (char === ',') {
+                    row.push(current);
+                    current = '';
+                } else if (char === '\n') {
+                    row.push(current);
+                    rows.push(row);
+                    row = [];
+                    current = '';
+                } else if (char !== '\r') {
+                    current += char;
+                }
+            }
+            row.push(current);
+            rows.push(row);
+            return rows.filter(r => r.some(cell => String(cell || '').trim() !== ''));
+        }
+
+        function buildEntries(rows) {
+            if (!rows.length) {
+                return { entries: [], total: 0, invalid: 0, dupes: 0, hasHeader: false };
+            }
+            const header = rows[0].map(h => String(h || '').trim().toLowerCase());
+            const hasHeader = header.some(h => h.includes('name')) && header.some(h => h.includes('ic') || h.includes('id'));
+            const nameIdx = hasHeader ? header.findIndex(h => h.includes('name')) : 0;
+            const icIdx = hasHeader ? header.findIndex(h => h.includes('ic') || h.includes('id')) : 1;
+            const notesIdx = hasHeader ? header.findIndex(h => h.includes('note') || h.includes('remark')) : 2;
+            const start = hasHeader ? 1 : 0;
+            const entries = [];
+            let invalid = 0;
+            let dupes = 0;
+            const seen = new Set();
+            for (let i = start; i < rows.length; i += 1) {
+                const row = rows[i] || [];
+                const rawName = String(row[nameIdx] || '').trim();
+                const rawIc = String(row[icIdx] || '').replace(/\D/g, '');
+                const rawNotes = String(row[notesIdx] || '').trim();
+                if (!rawName || !rawIc) {
+                    invalid += 1;
+                    continue;
+                }
+                if (seen.has(rawIc)) {
+                    dupes += 1;
+                    continue;
+                }
+                seen.add(rawIc);
+                entries.push({ name: rawName, ic: rawIc, notes: rawNotes });
+            }
+            return { entries, total: rows.length - start, invalid, dupes, hasHeader };
+        }
+
+        function renderPreview(entries) {
+            if (!previewList) return;
+            previewList.innerHTML = '';
+            if (!entries.length) {
+                const empty = document.createElement('div');
+                empty.className = 'muted';
+                empty.textContent = 'No rows to preview.';
+                previewList.appendChild(empty);
+                return;
+            }
+            entries.slice(0, 10).forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'row between';
+                const left = document.createElement('div');
+                const title = document.createElement('p');
+                title.className = 'label';
+                title.textContent = item.name;
+                const meta = document.createElement('p');
+                meta.className = 'muted';
+                meta.textContent = `${item.ic}${item.notes ? ` - ${item.notes}` : ''}`;
+                left.appendChild(title);
+                left.appendChild(meta);
+                row.appendChild(left);
+                const badge = document.createElement('span');
+                badge.className = 'chip ok';
+                badge.textContent = 'Ready';
+                row.appendChild(badge);
+                previewList.appendChild(row);
+            });
+        }
+
+        let parsedEntries = [];
+
+        if (csvInput) {
+            csvInput.addEventListener('change', async (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) {
+                    parsedEntries = [];
+                    importBtn.disabled = true;
+                    summaryEl.textContent = 'No file selected.';
+                    renderPreview([]);
+                    return;
+                }
+                try {
+                    const text = await file.text();
+                    const rows = parseCsv(text);
+                    const result = buildEntries(rows);
+                    parsedEntries = result.entries;
+                    importBtn.disabled = parsedEntries.length === 0;
+                    summaryEl.textContent = `Rows: ${result.total} • Valid: ${parsedEntries.length} • Duplicates in file: ${result.dupes} • Invalid: ${result.invalid}`;
+                    renderPreview(parsedEntries);
+                } catch (err) {
+                    console.warn('Failed to parse CSV', err);
+                    parsedEntries = [];
+                    importBtn.disabled = true;
+                    summaryEl.textContent = 'Failed to read CSV.';
+                    renderPreview([]);
+                    showMsg('Failed to read CSV file.', true);
+                }
+            });
+        }
+
+        if (importBtn) {
+            importBtn.addEventListener('click', async () => {
+                if (!parsedEntries.length) return;
+                importBtn.disabled = true;
+                try {
+                    const tenants = await ensureTenants();
+                    const existingMap = new Map(tenants.map(t => [t.ic, t]));
+                    let added = 0;
+                    let duplicates = 0;
+                    const updated = tenants.slice();
+                    parsedEntries.forEach(entry => {
+                        if (existingMap.has(entry.ic)) {
+                            duplicates += 1;
+                            return;
+                        }
+                        updated.push({
+                            name: entry.name,
+                            ic: entry.ic,
+                            garaj: '',
+                            kereta: 0,
+                            plat: [],
+                            autoAssign: true,
+                            tahunan: 0,
+                            baki: 0,
+                            status: 'Paid',
+                            notes: entry.notes || '',
+                            paymentUpdatedAt: ''
+                        });
+                        existingMap.set(entry.ic, true);
+                        added += 1;
+                    });
+                    await writeRTDB('tenants', updated);
+                    if (added > 0) {
+                        await logActivity('add', `Imported ${added} teachers (CSV)`);
+                    }
+                    showMsg(`Imported ${added} teachers. Duplicates skipped: ${duplicates}.`);
+                } catch (err) {
+                    console.warn('CSV import failed', err);
+                    showMsg('Failed to import CSV.', true);
+                } finally {
+                    importBtn.disabled = false;
+                }
+            });
+        }
+
+        const logoutBtn = document.getElementById('logout');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+        }
+    </script>
+</body>
+</html>

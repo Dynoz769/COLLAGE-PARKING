@@ -38,7 +38,7 @@ function parseFormBody(req) {
 function parseSlotLabel(label) {
   if (!label) return null;
   const zoneMatch = /zone\s*(\d+)/i.exec(label);
-  const garajMatch = /garaj\s*(\d+)/i.exec(label);
+  const garajMatch = /(?:garaj|garage)\s*(\d+)/i.exec(label);
   if (!zoneMatch || !garajMatch) return null;
   const zoneIndex = Number(zoneMatch[1]) - 1;
   const garajIndex = Number(garajMatch[1]) - 1;
@@ -161,7 +161,7 @@ exports.toyyibpayCallback = onRequest(async (req, res) => {
           const currentBaki = Number(current.baki) || 0;
           const paidAmount = Number(payment.amount) || 0;
           const newBaki = Math.max(0, currentBaki - paidAmount);
-          const newStatus = newBaki > 0 ? "Tunggak" : "Lunas";
+          const newStatus = newBaki > 0 ? "Overdue" : "Paid";
           tenants[idx] = Object.assign({}, current, {baki: newBaki, status: newStatus});
           await admin.database().ref("tenants").set(tenants);
 

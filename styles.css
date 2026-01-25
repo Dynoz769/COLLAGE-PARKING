@@ -85,6 +85,8 @@ body {
     color: #0b1224; border: none; box-shadow: 0 18px 30px rgba(34, 211, 238, 0.25);
 }
 .ghost-btn, .map-btn { background: rgba(255,255,255,0.08); border-color: var(--border); color: var(--text); }
+.ghost-btn.warn { border-color: rgba(245, 158, 11, 0.55); color: #f59e0b; }
+.ghost-btn.warn:hover { border-color: rgba(245, 158, 11, 0.8); color: #fbbf24; }
 .primary-btn:hover, .map-open-btn:hover { transform: translateY(-2px) scale(1.01); filter: saturate(1.1); }
 .ghost-btn:hover, .map-btn:hover { transform: translateY(-1px); border-color: var(--accent); }
 
@@ -167,8 +169,14 @@ body {
 .login-form h2, .admin-panel h2 { letter-spacing: -0.01em; }
 .field { display: grid; gap: 6px; }
 .field label { color: var(--muted); font-size: 13px; }
-.field input, .field select { padding: 12px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.06); color: var(--text); outline: none; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
-.field input:focus, .field select:focus { border-color: rgba(45, 212, 191, 0.5); box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.18); }
+.field input, .field select, .field textarea { padding: 12px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.06); color: var(--text); outline: none; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: rgba(45, 212, 191, 0.5); box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.18); }
+.field textarea { min-height: 96px; resize: vertical; }
+.details-panel { border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; background: rgba(255, 255, 255, 0.04); }
+.details-panel summary { cursor: pointer; font-weight: 700; color: var(--text); list-style: none; }
+.details-panel summary::-webkit-details-marker { display: none; }
+.details-panel[open] { background: rgba(255, 255, 255, 0.06); }
+.details-panel .details-grid { display: grid; gap: 12px; margin-top: 12px; }
 
 /* Enhanced select for tenant garaj dropdown (clean dark) */
 /* Enhanced selects for tenant dropdowns */
@@ -301,6 +309,15 @@ select#tenant-garaj-select option[disabled] {
 .panel-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-top: 18px; }
 .panel-card { border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.04); padding: 16px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35); }
 .panel-card .row { align-items: center; }
+.chart-legend { display: flex; gap: 8px; margin: 10px 0 4px; flex-wrap: wrap; }
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 14px; margin-top: 8px; }
+.chart-col { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.bar-stack { display: flex; align-items: flex-end; gap: 6px; height: 160px; width: 100%; padding: 8px 6px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.04); }
+.bar { flex: 1; width: auto; border-radius: 8px 8px 4px 4px; min-height: 0; }
+.bar.paid { background: linear-gradient(180deg, rgba(45, 212, 191, 0.9), rgba(45, 212, 191, 0.25)); }
+.bar.overdue { background: linear-gradient(180deg, rgba(245, 158, 11, 0.9), rgba(245, 158, 11, 0.25)); }
+.chart-label { font-size: 12px; color: var(--muted); text-align: center; }
+.chart-meta { font-size: 12px; color: var(--text); opacity: 0.85; }
 .admin-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .banner-wrap {

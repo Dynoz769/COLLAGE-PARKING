@@ -112,17 +112,17 @@
 <body>
     <div class="page">
         <header class="hero">
-            <p class="eyebrow">Peta Lantai</p>
-            <h1>Zona Parkir</h1>
-            <p class="lede">Klik satu zona untuk fokus; zona lain akan ke tepi. Gunakan tombol back untuk pilih zona lain.</p>
+            <p class="eyebrow">Site Map</p>
+            <h1>Parking Zones</h1>
+            <p class="lede">Click a zone to focus; other zones will move aside. Use Back to view all zones again.</p>
             <div class="actions user-toolbar">
-                <span class="badge ghost" id="session-user">Pengguna</span>
+                <span class="badge ghost" id="session-user">User</span>
                 <div class="legend">
-                    <span class="status-badge status-lunas">Lunas</span>
-                    <span class="status-badge status-tunggak">Tunggak</span>
+                    <span class="status-badge status-lunas">Paid</span>
+                    <span class="status-badge status-tunggak">Overdue</span>
                 </div>
                 <button id="export-user" class="ghost-btn" type="button">Export CSV</button>
-                <button id="logout-user" class="ghost-btn" type="button">Keluar</button>
+                <button id="logout-user" class="ghost-btn" type="button">Logout</button>
             </div>
         </header>
 
@@ -131,36 +131,36 @@
         </section>
 
         <section class="detail-panel" id="detail-panel">
-            <h4 id="detail-title">Pilih garaj untuk lihat butiran</h4>
+            <h4 id="detail-title">Select a garage to view details</h4>
             <div class="detail-row" id="detail-body">
-                <span class="muted">Tiada garaj dipilih.</span>
+                <span class="muted">No garage selected.</span>
             </div>
         </section>
 
         <div class="map-launch">
-            <button type="button" id="show-map" class="map-open-btn">Lihat Peta Kolej</button>
+            <button type="button" id="show-map" class="map-open-btn">View Campus Map</button>
             <p class="hint">Tekan untuk buka peta; zum dengan scroll atau cubitan, seret untuk alih.</p>
         </div>
 
         <div class="container" id="zone-container"></div>
 
-        <button id="back-btn" class="back-btn back-floating" type="button">Kembali ke semua zona</button>
+        <button id="back-btn" class="back-btn back-floating" type="button">Back to all zones</button>
     </div>
 
     <div class="map-viewer" id="map-viewer" aria-hidden="true">
         <div class="map-toolbar">
             <div>
-                <strong>Peta Kolej</strong>
-                <span class="map-hint">Guna scroll/cubitan untuk zum; seret imej untuk alih.</span>
+                <strong>Campus Map</strong>
+                <span class="map-hint">Use scroll/pinch to zoom; drag to pan.</span>
             </div>
             <div class="map-controls">
                 <button class="map-btn" id="zoom-out" type="button">-</button>
                 <button class="map-btn" id="zoom-in" type="button">+</button>
-                <button class="map-btn ghost" id="close-map" type="button">Tutup</button>
+                <button class="map-btn ghost" id="close-map" type="button">Close</button>
             </div>
         </div>
         <div class="map-stage" id="map-stage">
-            <img id="campus-map" src="map-kolej.jpg" alt="Peta Kolej" loading="lazy">
+            <img id="campus-map" src="map-kolej.jpg" alt="Campus Map" loading="lazy">
         </div>
     </div>
     
@@ -182,7 +182,7 @@
         const db = getDatabase(app);
         const sessionUserEl = document.getElementById('session-user');
         if (sessionUserEl) {
-            sessionUserEl.textContent = 'Pengguna';
+            sessionUserEl.textContent = 'User';
         }
 
         const tenantBase = [
@@ -222,6 +222,23 @@
             ['SITI ZURAINI BINTI ZAKARIA','870831035562']
         ];
 
+        function normalizePaymentStatus(value) {
+            const s = String(value || '').toLowerCase();
+            if (s === 'lunas' || s === 'paid') return 'Paid';
+            if (s === 'tunggak' || s === 'overdue' || s === 'due') return 'Overdue';
+            return value || '';
+        }
+
+        function isEmptySlotStatus(value) {
+            const s = String(value || '').toLowerCase();
+            return s === 'kosong' || s === 'empty';
+        }
+
+        function formatGarageLabel(label) {
+            if (!label) return '';
+            return String(label).replace(/garaj/gi, 'Garage');
+        }
+
         function normalizeTenants(list) {
             if (!Array.isArray(list)) return [];
             return list.map(t => ({
@@ -230,8 +247,12 @@
                 garaj: t?.garaj || '',
                 kereta: Number(t?.kereta) || 0,
                 plat: Array.isArray(t?.plat) ? t.plat.filter(Boolean) : [],
+                autoAssign: t?.autoAssign !== false,
+                tahunan: Number(t?.tahunan) || 0,
                 baki: Number(t?.baki) || 0,
-                status: t?.status || ((Number(t?.baki) || 0) > 0 ? 'Tunggak' : 'Lunas')
+                status: normalizePaymentStatus(t?.status || ((Number(t?.baki) || 0) > 0 ? 'Overdue' : 'Paid')),
+                notes: typeof t?.notes === 'string' ? t.notes : (t?.notes ? String(t.notes) : ''),
+                paymentUpdatedAt: t?.paymentUpdatedAt || ''
             }));
         }
 
@@ -242,8 +263,12 @@
                 garaj: '',
                 kereta: 0,
                 plat: [],
+                autoAssign: true,
+                tahunan: 0,
                 baki: 0,
-                status: 'Lunas'
+                status: 'Paid',
+                notes: '',
+                paymentUpdatedAt: ''
             }));
         }
 
@@ -254,7 +279,8 @@
                 ic: '',
                 kereta: 0,
                 plat: [],
-                status: 'Kosong',
+                tahunan: 0,
+                status: 'Empty',
                 baki: 0,
                 garajLabel: label
             };
@@ -262,14 +288,14 @@
 
         function buildDefaultZones(lengths, tenants) {
             const zones = Array.from({ length: lengths.length }, (_, z) => ({
-                garaj: Array.from({ length: lengths[z] || 10 }, (_, g) => createEmptySlot(`Garaj ${g + 1}`))
+                garaj: Array.from({ length: lengths[z] || 10 }, (_, g) => createEmptySlot(`Garage ${g + 1}`))
             }));
             const occupied = new Set();
 
             const parseSlot = (label) => {
                 if (!label) return null;
                 const zoneMatch = /zone\s*(\d+)/i.exec(label);
-                const garajMatch = /garaj\s*(\d+)/i.exec(label);
+                const garajMatch = /(?:garaj|garage)\s*(\d+)/i.exec(label);
                 if (!zoneMatch || !garajMatch) return null;
                 const z = Number(zoneMatch[1]) - 1;
                 const g = Number(garajMatch[1]) - 1;
@@ -277,21 +303,22 @@
                 return { z, g };
             };
 
-            // Place tenants with explicit garaj label first
+            // Place tenants with explicit garage label first
             tenants.forEach(t => {
                 const parsed = parseSlot(t.garaj);
                 if (parsed) {
                     const key = `${parsed.z}-${parsed.g}`;
                     if (!occupied.has(key)) {
                         zones[parsed.z].garaj[parsed.g] = {
-                            name: `Garaj ${parsed.g + 1}`,
+                            name: `Garage ${parsed.g + 1}`,
                             guru: t.name,
                             ic: t.ic,
                             kereta: Number(t.kereta) || 0,
                             plat: Array.isArray(t.plat) && t.plat.length ? t.plat : (t.ic ? [t.ic] : []),
-                            status: t.status || ((t.baki || 0) > 0 ? 'Tunggak' : 'Lunas'),
+                            tahunan: Number(t.tahunan) || 0,
+                            status: normalizePaymentStatus(t.status || ((t.baki || 0) > 0 ? 'Overdue' : 'Paid')),
                             baki: Number(t.baki) || 0,
-                            garajLabel: t.garaj || `Garaj ${parsed.g + 1}`
+                            garajLabel: t.garaj || `Garage ${parsed.g + 1}`
                         };
                         occupied.add(key);
                         return;
@@ -306,6 +333,7 @@
                 const parsed = parseSlot(t.garaj);
                 const alreadyPlaced = parsed && occupied.has(`${parsed.z}-${parsed.g}`);
                 if (alreadyPlaced) return;
+                if (t.autoAssign === false) return;
                 while (cursor < totalSlots) {
                     let running = 0;
                     for (let z = 0; z < zones.length; z++) {
@@ -313,16 +341,17 @@
                         if (cursor < running + zoneSize) {
                             const g = cursor - running;
                             const key = `${z}-${g}`;
-                            if (!occupied.has(key) && zones[z].garaj[g].status === 'Kosong') {
+                            if (!occupied.has(key) && isEmptySlotStatus(zones[z].garaj[g].status)) {
                                 zones[z].garaj[g] = {
-                                    name: `Garaj ${g + 1}`,
+                                    name: `Garage ${g + 1}`,
                                     guru: t.name,
                                     ic: t.ic,
                                     kereta: Number(t.kereta) || 0,
                                     plat: Array.isArray(t.plat) && t.plat.length ? t.plat : (t.ic ? [t.ic] : []),
-                                    status: t.status || ((t.baki || 0) > 0 ? 'Tunggak' : 'Lunas'),
+                                    tahunan: Number(t.tahunan) || 0,
+                                    status: normalizePaymentStatus(t.status || ((t.baki || 0) > 0 ? 'Overdue' : 'Paid')),
                                     baki: Number(t.baki) || 0,
-                                    garajLabel: t.garaj || `Garaj ${g + 1}`
+                                    garajLabel: t.garaj || `Garage ${g + 1}`
                                 };
                                 occupied.add(key);
                                 cursor++;
@@ -374,7 +403,7 @@
             try {
                 await writeRTDB('tenants', seeded);
             } catch (e) {
-                console.warn('RTDB seed tenants gagal', e);
+                console.warn('RTDB seed tenants failed', e);
             }
             return seeded;
         }
@@ -389,7 +418,7 @@
             try {
                 await writeRTDB('zones', derived);
             } catch (e) {
-                console.warn('RTDB seed zones gagal', e);
+                console.warn('RTDB seed zones failed', e);
             }
             return derived;
         }
@@ -411,8 +440,9 @@
                     const occupied = (g.kereta || 0) > 0 || (g.guru && g.guru !== '-');
                     if (occupied) terpakai += 1;
                     else kosong += 1;
-                    if ((g.status || '').toLowerCase() === 'lunas') lunas += 1;
-                    else if ((g.status || '').toLowerCase() === 'tunggak') tunggak += 1;
+                    const status = normalizePaymentStatus(g.status);
+                    if (status === 'Paid') lunas += 1;
+                    else if (status === 'Overdue') tunggak += 1;
                 });
             });
             return {
@@ -431,27 +461,27 @@
             const stats = buildStats(zonesData);
             statStrip.innerHTML = `
                 <div class="stat-chip">
-                    <span class="label">Zona</span>
+                    <span class="label">Zones</span>
                     <strong>${stats.zona}</strong>
                 </div>
                 <div class="stat-chip">
-                    <span class="label">Garaj</span>
+                    <span class="label">Garages</span>
                     <strong>${stats.garaj}</strong>
                 </div>
                 <div class="stat-chip soft ok">
-                    <span class="label">Terpakai</span>
+                    <span class="label">Occupied</span>
                     <strong>${stats.terpakai}</strong>
                 </div>
                 <div class="stat-chip soft warn">
-                    <span class="label">Kosong</span>
+                    <span class="label">Empty</span>
                     <strong>${stats.kosong}</strong>
                 </div>
                 <div class="stat-chip soft ok">
-                    <span class="label">Status Lunas</span>
+                    <span class="label">Paid</span>
                     <strong>${stats.lunas}</strong>
                 </div>
                 <div class="stat-chip soft warn">
-                    <span class="label">Status Tunggak</span>
+                    <span class="label">Overdue</span>
                     <strong>${stats.tunggak}</strong>
                 </div>
             `;
@@ -478,18 +508,18 @@
         }
 
         function showDetail(zoneIdx, info) {
-            detailTitle.textContent = `${info.name || 'Garaj'} di Zone ${zoneIdx + 1}`;
+            detailTitle.textContent = `${formatGarageLabel(info.name || 'Garage')} in Zone ${zoneIdx + 1}`;
             detailBody.innerHTML = `
-                <span>Pemilik: <strong>${info.guru || '-'}</strong></span>
-                <span>IC: <strong>${info.ic || '-'}</strong></span>
-                <span>Jumlah kereta: <strong>${info.kereta ?? '-'}</strong></span>
-                <span>No plat: <strong>${(info.plat || []).join(', ') || '-'}</strong></span>
-                <span>Garaj dipilih: <strong>${info.garajLabel || info.name || '-'}</strong></span>
-                <span>Status penghuni: <strong>${(info.kereta || 0) > 0 || (info.guru && info.guru !== '-') ? 'Ada orang' : 'Tiada orang'}</strong></span>
-                <span>Status bayaran: <strong>${info.status || '-'}</strong></span>
-                <span>Baki bayaran: <strong>RM ${info.baki ?? 0}</strong></span>
+                <span>Teacher: <strong>${info.guru || '-'}</strong></span>
+                <span>ID: <strong>${info.ic || '-'}</strong></span>
+                <span>Cars: <strong>${info.kereta ?? '-'}</strong></span>
+                <span>Plates: <strong>${(info.plat || []).join(', ') || '-'}</strong></span>
+                <span>Assigned garage: <strong>${formatGarageLabel(info.garajLabel || info.name || '-') || '-'}</strong></span>
+                <span>Occupancy: <strong>${(info.kereta || 0) > 0 || (info.guru && info.guru !== '-') ? 'Occupied' : 'Empty'}</strong></span>
+                <span>Payment status: <strong>${normalizePaymentStatus(info.status) || '-'}</strong></span>
+                <span>Outstanding balance: <strong>RM ${info.baki ?? 0}</strong></span>
             `;
-            showToast(`Butiran ${info.name || 'Garaj'} dibuka`);
+            showToast(`Details for ${formatGarageLabel(info.name || 'Garage')} opened`);
         }
 
         const container = document.getElementById('zone-container');
@@ -532,21 +562,21 @@
                 garajList.forEach((info, idx) => {
                     const garaj = document.createElement('div');
                     const occClass = statusClass(info);
-                    const payClass = (info.status || '').toLowerCase() === 'tunggak' ? 'tunggak' : '';
+                    const payClass = normalizePaymentStatus(info.status) === 'Overdue' ? 'tunggak' : '';
                     garaj.classList.add('garaj', occClass === 'status-ada' ? 'ada' : 'kosong');
                     if (payClass) garaj.classList.add(payClass);
                     garaj.innerHTML = `
                         <div class="garaj-head">
-                            <span class="garaj-name">${info.name || `Garaj ${idx + 1}`}</span>
-                            <span class="status-badge ${occClass}">${(info.kereta || 0) > 0 || (info.guru && info.guru !== '-') ? 'Ada orang' : 'Tiada orang'}</span>
+                            <span class="garaj-name">${formatGarageLabel(info.name || `Garage ${idx + 1}`)}</span>
+                            <span class="status-badge ${occClass}">${(info.kereta || 0) > 0 || (info.guru && info.guru !== '-') ? 'Occupied' : 'Empty'}</span>
                         </div>
-                        <p class="garaj-teacher">Pemilik: ${info.guru || '-'}</p>
-                        <p class="garaj-meta">IC: ${info.ic || '-'}</p>
-                        <p class="garaj-meta">Jumlah kereta: ${info.kereta ?? 0}</p>
-                        <p class="garaj-meta">No plat: ${(info.plat || []).join(', ') || '-'}</p>
-                        <p class="garaj-meta">Garaj: ${info.garajLabel || info.name || '-'}</p>
-                        <p class="garaj-meta">Status bayaran: ${info.status || '-'}</p>
-                        <p class="garaj-meta">Baki: RM ${info.baki ?? 0}</p>
+                        <p class="garaj-teacher">Teacher: ${info.guru || '-'}</p>
+                        <p class="garaj-meta">ID: ${info.ic || '-'}</p>
+                        <p class="garaj-meta">Cars: ${info.kereta ?? 0}</p>
+                        <p class="garaj-meta">Plates: ${(info.plat || []).join(', ') || '-'}</p>
+                        <p class="garaj-meta">Garage: ${formatGarageLabel(info.garajLabel || info.name || '-') || '-'}</p>
+                        <p class="garaj-meta">Payment status: ${normalizePaymentStatus(info.status) || '-'}</p>
+                        <p class="garaj-meta">Balance: RM ${info.baki ?? 0}</p>
                     `;
                     garaj.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -564,7 +594,7 @@
                 renderStats(zoneData);
                 renderGaraj(zoneData);
             } catch (e) {
-                console.warn('Gagal load data Firebase', e);
+                console.warn('Failed to load Firebase data', e);
             }
             resetView();
         }
@@ -591,7 +621,7 @@
 
         watchRealtimeUpdates();
 
-        // Export CSV untuk pengguna
+        // Export CSV for users
         function exportUserCsv() {
             const tenants = Array.isArray(tenantData) ? tenantData : [];
             const zones = Array.isArray(zoneData) ? zoneData : [];
@@ -601,22 +631,23 @@
                     if (g.ic) slotMap.set(g.ic, { z: zIdx, g: gIdx });
                 });
             });
-            const headers = ['Nama','IC','Zone','Garaj','Label Garaj','Kereta','Plat','Status','Baki'];
+            const headers = ['Name','ID','Zone','Garage','Garage Label','Cars','Plates','Annual','Status','Balance'];
             const rows = tenants.map(t => {
                 const matchZone = /zone\s*(\d+)/i.exec(t.garaj || '');
-                const matchGaraj = /garaj\s*(\d+)/i.exec(t.garaj || '');
+                const matchGaraj = /(?:garaj|garage)\s*(\d+)/i.exec(t.garaj || '');
                 const slot = (!matchZone && t.ic && slotMap.get(t.ic)) || null;
                 const zoneLabel = matchZone ? `Zone ${matchZone[1]}` : slot ? `Zone ${slot.z + 1}` : '';
-                const garajLabel = matchGaraj ? `Garaj ${matchGaraj[1]}` : slot ? `Garaj ${slot.g + 1}` : '';
+                const garajLabel = matchGaraj ? `Garage ${matchGaraj[1]}` : slot ? `Garage ${slot.g + 1}` : '';
                 return [
                     t.name || '',
                     t.ic || '',
                     zoneLabel,
-                    garajLabel,
-                    t.garaj || '',
+                    formatGarageLabel(garajLabel) || '',
+                    formatGarageLabel(t.garaj || '') || '',
                     t.kereta || 0,
                     (t.plat || []).join(' | '),
-                    t.status || ((Number(t.baki) || 0) > 0 ? 'Tunggak' : 'Lunas'),
+                    t.tahunan || 0,
+                    normalizePaymentStatus(t.status || ((Number(t.baki) || 0) > 0 ? 'Overdue' : 'Paid')),
                     t.baki || 0
                 ];
             });
@@ -625,7 +656,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'senarai-penyewa.csv';
+            a.download = 'teacher-list.csv';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);

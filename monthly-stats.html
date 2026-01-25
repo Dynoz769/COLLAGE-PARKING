@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Payment Stats</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="auth-body">
+    <div class="page admin-page">
+        <header class="admin-header">
+            <div>
+                <p class="eyebrow">Admin</p>
+                <h1>Monthly Payment Stats</h1>
+                <p class="lede">Counts based on the latest payment status update per teacher.</p>
+            </div>
+            <div class="admin-controls">
+                <a class="ghost-btn" href="admin.html">Back to Dashboard</a>
+                <button id="logout" class="ghost-btn" type="button">Logout</button>
+            </div>
+        </header>
+
+        <section class="stat-grid" style="margin-top:12px;">
+            <div class="stat-card">
+                <p class="label">Paid Updates</p>
+                <p id="paid-total" class="value">-</p>
+                <p class="hint">Last 12 months</p>
+            </div>
+            <div class="stat-card">
+                <p class="label">Overdue Updates</p>
+                <p id="overdue-total" class="value">-</p>
+                <p class="hint">Last 12 months</p>
+            </div>
+        </section>
+
+        <section class="panel-card" style="margin-top:12px;">
+            <div class="table-head">
+                <p>Paid vs Overdue</p>
+                <span class="hint">Monthly distribution</span>
+            </div>
+            <div class="chart-legend">
+                <span class="chip ok">Paid</span>
+                <span class="chip warn">Overdue</span>
+            </div>
+            <div class="chart-grid" id="chart-grid"></div>
+            <p class="muted" id="chart-empty">No payment updates yet.</p>
+        </section>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBwFhbL0lbYcIdejcYHvGR5ZWTZtwH9WaU",
+            authDomain: "collage-parking.firebaseapp.com",
+            projectId: "collage-parking",
+            storageBucket: "collage-parking.firebasestorage.app",
+            messagingSenderId: "948017323214",
+            appId: "1:948017323214:web:30555ce9fddae45593849f",
+            measurementId: "G-R82NJ57P3T",
+            databaseURL: "https://collage-parking-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const chartGrid = document.getElementById('chart-grid');
+        const chartEmpty = document.getElementById('chart-empty');
+        const paidTotalEl = document.getElementById('paid-total');
+        const overdueTotalEl = document.getElementById('overdue-total');
+
+        function normalizeList(value) {
+            if (Array.isArray(value)) {
+                return value.filter(Boolean);
+            }
+            if (value && typeof value === 'object') {
+                const keys = Object.keys(value);
+                const numeric = keys.every(k => String(Number(k)) === k);
+                const ordered = numeric ? keys.sort((a, b) => Number(a) - Number(b)) : keys;
+                return ordered.map(k => value[k]).filter(Boolean);
+            }
+            return null;
+        }
+
+        function normalizePaymentStatus(value) {
+            const s = String(value || '').toLowerCase();
+            if (s === 'lunas' || s === 'paid') return 'Paid';
+            if (s === 'tunggak' || s === 'overdue' || s === 'due') return 'Overdue';
+            return value || '';
+        }
+
+        function normalizeTenants(list) {
+            if (!Array.isArray(list)) return [];
+            return list.map(t => ({
+                name: t?.name || '-',
+                ic: t?.ic || '',
+                garaj: t?.garaj || '',
+                kereta: Number(t?.kereta) || 0,
+                plat: Array.isArray(t?.plat) ? t.plat.filter(Boolean) : [],
+                autoAssign: t?.autoAssign !== false,
+                tahunan: Number(t?.tahunan) || 0,
+                baki: Number(t?.baki) || 0,
+                status: normalizePaymentStatus(t?.status || ((Number(t?.baki) || 0) > 0 ? 'Overdue' : 'Paid')),
+                notes: typeof t?.notes === 'string' ? t.notes : (t?.notes ? String(t.notes) : ''),
+                paymentUpdatedAt: t?.paymentUpdatedAt || ''
+            }));
+        }
+
+        async function fetchRTDB(path) {
+            const snap = await get(ref(db, path));
+            return snap.exists() ? snap.val() : null;
+        }
+
+        async function writeRTDB(path, data) {
+            await set(ref(db, path), data);
+        }
+
+        const tenantBase = [
+            ['ASMADI BIN HUSSIN','690103036761'],
+            ['FATMA NUR LIYANA BINTI ALLUWI','911110036192'],
+            ['HASNIAH BINTI MOHAMED','700311035196'],
+            ['KAMARIAH BINTI KAMAROLZAMAN','710714035296'],
+            ['KAMARUL BAKRI BIN ABDULLAH','701027035169'],
+            ['MAHANI BINTI MOHAMAD','780101038164'],
+            ['MAHASHIM BIN BAKAR','661014035289'],
+            ['MD KHAIRULLIZAM BIN CHE IDERIS','860803235277'],
+            ['MOHD KHAIRILLAH BIN IBRAHIM (KJ)','680830035037'],
+            ['MOHD RIDUAN BIN KAMARUDDIN','760315035059'],
+            ['MOHD SOBRI BIN ZAKARIA','710624035559'],
+            ['MOHD ZAIN BIN YAACOB','730706035243'],
+            ['NAZERI BIN MUHAMAD','740202035011'],
+            ['NOOR AISYAH BINTI MUDA','740622115384'],
+            ['NOORHADIANI BINTI CHE SU','800711035644'],
+            ['NORAZIAN BINTI MAT DAUD','731101035026'],
+            ['NORFADHILLAH  BINTI MOHAMAD','800714035818'],
+            ['NORFAIZATU AKEMA BINTI ZAKARIA','900710035018'],
+            ['NORHAYATI BINTI OMAR','770602037056'],
+            ['NORIYAH BINTI DOLLAH @ ABDULLAH','720926035342'],
+            ['NUR WAHIDA AMALIN BINTI MOHD RAFI','910611035396'],
+            ['NURHASYYATI BINTI ZAHRI','920526035956'],
+            ['NURUL AIDA BINTI REDZUWAN','811221035098'],
+            ['NURUL FADZIHA BINTI AHMAD','801123035298'],
+            ['ROHAFZAN BINTI MUHAMMAD ','760318035038'],
+            ['ROHANA BINTI ABDUL RAHIM','661207035250'],
+            ['ROS ADURA BINTI KAMARUDDIN','740522035168'],
+            ['ROSMA BINTI ZAINUDEEN','771120045664'],
+            ['ROSMAN BIN ABDUL KADIR','760904035137'],
+            ['RUSYDA PEK BINTI ABDULLAH @ PEK WEE ENG','700908105388'],
+            ['SALWANI BINTI ABDULLAZIZ','790104035902'],
+            ['SHAHRI LAILA BINTI MOHD NOR','840630035964'],
+            ['SHARIFAH BINTI HUSSIN','710815035586'],
+            ['SITI ZURAINI BINTI ZAKARIA','870831035562']
+        ];
+
+        function seedTenants() {
+            return tenantBase.map(t => ({
+                name: t[0],
+                ic: t[1],
+                garaj: '',
+                kereta: 0,
+                plat: [],
+                autoAssign: true,
+                tahunan: 0,
+                baki: 0,
+                status: 'Paid',
+                notes: '',
+                paymentUpdatedAt: ''
+            }));
+        }
+
+        async function ensureTenants() {
+            const remote = await fetchRTDB('tenants');
+            const normalized = normalizeList(remote);
+            if (normalized && normalized.length) {
+                return normalizeTenants(normalized);
+            }
+            const seeded = seedTenants();
+            try {
+                await writeRTDB('tenants', seeded);
+            } catch (e) {
+                console.warn('RTDB seed tenants failed', e);
+            }
+            return seeded;
+        }
+
+        function buildMonths() {
+            const now = new Date();
+            const months = [];
+            for (let i = 11; i >= 0; i -= 1) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const label = d.toLocaleString('en-US', { month: 'short' }) + ' ' + d.getFullYear();
+                months.push({ year: d.getFullYear(), month: d.getMonth(), label });
+            }
+            return months;
+        }
+
+        function buildStats(tenants, months) {
+            const stats = months.map(() => ({ paid: 0, overdue: 0 }));
+            const first = months[0];
+            const startIndex = first.year * 12 + first.month;
+            tenants.forEach(t => {
+                const ts = t.paymentUpdatedAt;
+                if (!ts) return;
+                const d = new Date(ts);
+                if (Number.isNaN(d.getTime())) return;
+                const idx = d.getFullYear() * 12 + d.getMonth() - startIndex;
+                if (idx < 0 || idx >= months.length) return;
+                const baki = Number(t.baki) || 0;
+                let status = normalizePaymentStatus(t.status || (baki > 0 ? 'Overdue' : 'Paid'));
+                if (baki > 0 && status === 'Paid') status = 'Overdue';
+                if (status === 'Paid') stats[idx].paid += 1;
+                else if (status === 'Overdue') stats[idx].overdue += 1;
+            });
+            return stats;
+        }
+
+        function renderChart(months, stats) {
+            if (!chartGrid) return;
+            chartGrid.innerHTML = '';
+            const maxValue = Math.max(1, ...stats.flatMap(s => [s.paid, s.overdue]));
+            let totalPaid = 0;
+            let totalOverdue = 0;
+            stats.forEach(s => {
+                totalPaid += s.paid;
+                totalOverdue += s.overdue;
+            });
+            if (paidTotalEl) paidTotalEl.textContent = String(totalPaid);
+            if (overdueTotalEl) overdueTotalEl.textContent = String(totalOverdue);
+            const hasData = totalPaid + totalOverdue > 0;
+            if (chartEmpty) chartEmpty.style.display = hasData ? 'none' : 'block';
+            months.forEach((m, idx) => {
+                const col = document.createElement('div');
+                col.className = 'chart-col';
+                const stack = document.createElement('div');
+                stack.className = 'bar-stack';
+                const paidBar = document.createElement('div');
+                paidBar.className = 'bar paid';
+                paidBar.style.height = `${(stats[idx].paid / maxValue) * 100}%`;
+                paidBar.style.minHeight = stats[idx].paid > 0 ? '6px' : '0';
+                const overdueBar = document.createElement('div');
+                overdueBar.className = 'bar overdue';
+                overdueBar.style.height = `${(stats[idx].overdue / maxValue) * 100}%`;
+                overdueBar.style.minHeight = stats[idx].overdue > 0 ? '6px' : '0';
+                stack.appendChild(paidBar);
+                stack.appendChild(overdueBar);
+                const label = document.createElement('span');
+                label.className = 'chart-label';
+                label.textContent = m.label;
+                const meta = document.createElement('span');
+                meta.className = 'chart-meta';
+                meta.textContent = `P:${stats[idx].paid} O:${stats[idx].overdue}`;
+                col.appendChild(stack);
+                col.appendChild(label);
+                col.appendChild(meta);
+                chartGrid.appendChild(col);
+            });
+        }
+
+        async function hydrate() {
+            try {
+                const tenants = await ensureTenants();
+                const months = buildMonths();
+                const stats = buildStats(tenants, months);
+                renderChart(months, stats);
+            } catch (e) {
+                console.warn('Failed to load Firebase data', e);
+            }
+        }
+
+        hydrate();
+
+        onValue(ref(db, 'tenants'), (snap) => {
+            if (!snap.exists()) return;
+            const updated = normalizeList(snap.val());
+            if (!updated) return;
+            const tenants = normalizeTenants(updated);
+            const months = buildMonths();
+            const stats = buildStats(tenants, months);
+            renderChart(months, stats);
+        });
+
+        const logoutBtn = document.getElementById('logout');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+        }
+    </script>
+</body>
+</html>

@@ -8,28 +8,28 @@
 </head>
 <body class="auth-body index-bg">
     <div class="banner-wrap">
-        <div class="banner-marquee">PARKING KOLEJ VOKASIONAL PASIR MAS • PARKING KOLEJ VOKASIONAL PASIR MAS • PARKING KOLEJ VOKASIONAL PASIR MAS •</div>
+        <div class="banner-marquee">PASIR MAS VOCATIONAL COLLEGE PARKING • PASIR MAS VOCATIONAL COLLEGE PARKING • PASIR MAS VOCATIONAL COLLEGE PARKING •</div>
     </div>
     <div class="auth-layout">
         <div class="auth-hero">
             <p class="eyebrow">Portal</p>
             <h1>Admin Dashboard</h1>
-            <p class="lede">Akses masuk untuk pantau zona dan garaj.</p>
-            <div class="pill">Demo: admin / 1234 · user / 1234</div>
+            <p class="lede">Sign in to monitor zones and garages.</p>
+            <div class="pill">Demo: admin / 1234 • user / 1234</div>
         </div>
 
         <div class="auth-card">
             <div class="admin-actions" style="justify-content:flex-end; margin-bottom:6px;">
-                <a class="ghost-btn" href="penyewa.html">Portal Penyewa (IC)</a>
+                <a class="ghost-btn" href="penyewa.html">Teacher Portal (ID)</a>
             </div>
             <form id="login-form" class="login-form">
-                <h2>Masuk</h2>
+                <h2>Sign in</h2>
                 <div class="field">
                     <label for="username">Username</label>
                     <input type="text" id="username" name="username" placeholder="admin" autocomplete="username" required>
                 </div>
                 <div class="field">
-                    <label for="password">Kata Laluan</label>
+                    <label for="password">Password</label>
                     <input type="password" id="password" name="password" placeholder="••••" autocomplete="current-password" required>
                 </div>
                 <div class="alert" id="alert"></div>
@@ -40,35 +40,35 @@
                 <header class="panel-head">
                     <div class="user-meta">
                         <div>
-                            <p class="eyebrow">Selamat datang</p>
+                            <p class="eyebrow">Welcome</p>
                             <h2 id="user-name">Administrator</h2>
                         </div>
                         <span id="role-badge" class="pill-soft ok">Admin</span>
                     </div>
                     <div class="admin-actions">
-                        <button id="open-admin-btn" type="button" class="ghost-btn">Buka Dashboard</button>
-                        <button id="logout-btn" type="button" class="ghost-btn">Keluar</button>
+                        <button id="open-admin-btn" type="button" class="ghost-btn">Open Dashboard</button>
+                        <button id="logout-btn" type="button" class="ghost-btn">Logout</button>
                     </div>
                 </header>
 
                 <div class="stat-grid">
                     <div class="stat-card">
-                        <p class="label">Total Zona</p>
+                        <p class="label">Total Zones</p>
                         <p class="value" id="stat-zona">-</p>
-                        <p class="hint">Aktif</p>
+                        <p class="hint">Active</p>
                     </div>
                     <div class="stat-card">
-                        <p class="label">Garaj</p>
+                        <p class="label">Garages</p>
                         <p class="value" id="stat-garaj">-</p>
-                        <p class="hint">Bilangan semasa</p>
+                        <p class="hint">Current count</p>
                     </div>
                     <div class="stat-card">
-                        <p class="label">Terpakai</p>
+                        <p class="label">Occupied</p>
                         <p class="value accent" id="stat-terpakai">-</p>
                         <p class="hint">&nbsp;</p>
                     </div>
                     <div class="stat-card">
-                        <p class="label">Kosong</p>
+                        <p class="label">Empty</p>
                         <p class="value" id="stat-kosong">-</p>
                         <p class="hint">&nbsp;</p>
                     </div>
@@ -76,7 +76,7 @@
 
                 <div class="table-card">
                     <div class="table-head">
-                        <p>Zona & Garaj</p>
+                        <p>Zones & Garages</p>
                         <span class="hint">&nbsp;</span>
                     </div>
                     <div class="list" id="snapshot-list"></div>
@@ -116,7 +116,7 @@
 
         const ACCOUNTS = {
             admin: { password: '1234', name: 'Administrator', role: 'Admin' },
-            user: { password: '1234', name: 'Pengguna', role: 'User' }
+            user: { password: '1234', name: 'User', role: 'User' }
         };
 
         function showError(msg) {
@@ -167,7 +167,7 @@
             if (!data.length) {
                 const empty = document.createElement('div');
                 empty.className = 'muted';
-                empty.textContent = 'Tiada data garaj. Sila set di admin.';
+                empty.textContent = 'No garage data. Please set it in admin.';
                 snapshotList.appendChild(empty);
                 return;
             }
@@ -180,10 +180,10 @@
                 badge.textContent = `Zone ${idx + 1}`;
                 const muted = document.createElement('span');
                 muted.className = 'muted';
-                muted.textContent = `Terpakai: ${used} / ${(z.garaj || []).length}`;
+                muted.textContent = `Used: ${used} / ${(z.garaj || []).length}`;
                 const pill = document.createElement('span');
                 pill.className = 'pill-soft ' + (used >= (z.garaj || []).length * 0.7 ? 'warn' : 'ok');
-                pill.textContent = used >= (z.garaj || []).length * 0.7 ? 'Padat' : 'Stabil';
+                pill.textContent = used >= (z.garaj || []).length * 0.7 ? 'Busy' : 'Stable';
                 row.appendChild(badge);
                 row.appendChild(muted);
                 row.appendChild(pill);
@@ -221,7 +221,7 @@
             if (account && password === account.password) {
                 applySession(username, { redirect: true });
             } else {
-                showError('Login gagal. Cuba admin / 1234 atau user / 1234.');
+                showError('Login failed. Try admin / 1234 or user / 1234.');
             }
         });
 
@@ -261,7 +261,7 @@
                 renderStatsFromData(zones);
                 renderSnapshot(zones);
             } catch (e) {
-                console.warn('Gagal baca data garaj', e);
+                console.warn('Failed to read garage data', e);
                 renderSnapshot([]);
             }
         }
