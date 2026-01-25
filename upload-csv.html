@@ -23,12 +23,15 @@
         <section class="panel-card">
             <div class="table-head">
                 <p>Upload CSV</p>
-                <span class="hint">Columns: name, ic, notes (optional)</span>
+                <span class="hint">Columns: name, ic, notes (optional). Supports comma, semicolon, or tab.</span>
             </div>
             <div class="login-form" style="margin-top:8px;">
                 <div class="field">
                     <label for="csv-file">Select CSV file</label>
                     <input type="file" id="csv-file" accept=".csv,text/csv">
+                </div>
+                <div class="field">
+                    <label><input type="checkbox" id="update-duplicates"> Update existing teachers when IC matches</label>
                 </div>
                 <div class="alert" id="csv-msg"></div>
                 <div class="admin-actions">
@@ -56,6 +59,7 @@
         const summaryEl = document.getElementById('csv-summary');
         const previewList = document.getElementById('preview-list');
         const msg = document.getElementById('csv-msg');
+        const updateDuplicates = document.getElementById('update-duplicates');
 
         const firebaseConfig = {
             apiKey: "AIzaSyBwFhbL0lbYcIdejcYHvGR5ZWTZtwH9WaU",
@@ -215,7 +219,30 @@
             return seeded;
         }
 
-        function parseCsv(text) {
+        function detectDelimiter(text) {
+            const sepMatch = text.match(/^sep=([,;\t|])\r?\n/i);
+            if (sepMatch) return sepMatch[1];
+            const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+            const sample = lines[0] || '';
+            const delimiters = [',', ';', '\t', '|'];
+            const scores = delimiters.map(d => ({ d, count: 0 }));
+            let inQuotes = false;
+            for (let i = 0; i < sample.length; i += 1) {
+                const char = sample[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                    continue;
+                }
+                if (!inQuotes) {
+                    const score = scores.find(s => s.d === char);
+                    if (score) score.count += 1;
+                }
+            }
+            scores.sort((a, b) => b.count - a.count);
+            return scores[0].count > 0 ? scores[0].d : ',';
+        }
+
+        function parseCsv(text, delimiter) {
             const rows = [];
             let row = [];
             let current = '';
@@ -235,7 +262,7 @@
                     }
                 } else if (char === '"') {
                     inQuotes = true;
-                } else if (char === ',') {
+                } else if (char === delimiter) {
                     row.push(current);
                     current = '';
                 } else if (char === '\n') {
@@ -252,15 +279,30 @@
             return rows.filter(r => r.some(cell => String(cell || '').trim() !== ''));
         }
 
+        function normalizeHeader(text) {
+            return String(text || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim();
+        }
+
+        function findHeaderIndex(header, patterns) {
+            return header.findIndex(h => patterns.some(p => h.includes(p)));
+        }
+
         function buildEntries(rows) {
             if (!rows.length) {
                 return { entries: [], total: 0, invalid: 0, dupes: 0, hasHeader: false };
             }
-            const header = rows[0].map(h => String(h || '').trim().toLowerCase());
-            const hasHeader = header.some(h => h.includes('name')) && header.some(h => h.includes('ic') || h.includes('id'));
-            const nameIdx = hasHeader ? header.findIndex(h => h.includes('name')) : 0;
-            const icIdx = hasHeader ? header.findIndex(h => h.includes('ic') || h.includes('id')) : 1;
-            const notesIdx = hasHeader ? header.findIndex(h => h.includes('note') || h.includes('remark')) : 2;
+            const header = rows[0].map(h => normalizeHeader(h));
+            const namePatterns = ['name', 'full name', 'fullname', 'nama'];
+            const icPatterns = ['ic', 'id', 'id number', 'ic number', 'ic no', 'no ic', 'nric', 'kp', 'kad pengenalan', 'no kad pengenalan'];
+            const notesPatterns = ['note', 'notes', 'remark', 'remarks', 'catatan'];
+            const hasHeader = header.some(h => namePatterns.some(p => h.includes(p)))
+                && header.some(h => icPatterns.some(p => h.includes(p)));
+            const nameIdx = hasHeader ? findHeaderIndex(header, namePatterns) : 0;
+            const icIdx = hasHeader ? findHeaderIndex(header, icPatterns) : 1;
+            const notesIdx = hasHeader ? findHeaderIndex(header, notesPatterns) : 2;
             const start = hasHeader ? 1 : 0;
             const entries = [];
             let invalid = 0;
@@ -270,7 +312,7 @@
                 const row = rows[i] || [];
                 const rawName = String(row[nameIdx] || '').trim();
                 const rawIc = String(row[icIdx] || '').replace(/\D/g, '');
-                const rawNotes = String(row[notesIdx] || '').trim();
+                const rawNotes = notesIdx >= 0 ? String(row[notesIdx] || '').trim() : '';
                 if (!rawName || !rawIc) {
                     invalid += 1;
                     continue;
@@ -317,28 +359,41 @@
         }
 
         let parsedEntries = [];
+        let existingDuplicates = 0;
 
         if (csvInput) {
             csvInput.addEventListener('change', async (e) => {
                 const file = e.target.files && e.target.files[0];
                 if (!file) {
                     parsedEntries = [];
+                    existingDuplicates = 0;
                     importBtn.disabled = true;
                     summaryEl.textContent = 'No file selected.';
                     renderPreview([]);
                     return;
                 }
                 try {
-                    const text = await file.text();
-                    const rows = parseCsv(text);
+                    let text = await file.text();
+                    text = text.replace(/^\uFEFF/, '');
+                    if (/^sep=./i.test(text)) {
+                        text = text.replace(/^sep=.+\r?\n/i, '');
+                    }
+                    const delimiter = detectDelimiter(text);
+                    const rows = parseCsv(text, delimiter);
                     const result = buildEntries(rows);
                     parsedEntries = result.entries;
-                    importBtn.disabled = parsedEntries.length === 0;
-                    summaryEl.textContent = `Rows: ${result.total} • Valid: ${parsedEntries.length} • Duplicates in file: ${result.dupes} • Invalid: ${result.invalid}`;
+                    const tenants = await ensureTenants();
+                    const existingSet = new Set(tenants.map(t => t.ic));
+                    existingDuplicates = parsedEntries.filter(entry => existingSet.has(entry.ic)).length;
+                    const updateEnabled = updateDuplicates ? updateDuplicates.checked : false;
+                    const actionable = parsedEntries.length > 0 && (updateEnabled || parsedEntries.length > existingDuplicates);
+                    importBtn.disabled = !actionable;
+                    summaryEl.textContent = `Rows: ${result.total} | Valid: ${parsedEntries.length} | Duplicate in file: ${result.dupes} | Existing in system: ${existingDuplicates} | Invalid: ${result.invalid}`;
                     renderPreview(parsedEntries);
                 } catch (err) {
                     console.warn('Failed to parse CSV', err);
                     parsedEntries = [];
+                    existingDuplicates = 0;
                     importBtn.disabled = true;
                     summaryEl.textContent = 'Failed to read CSV.';
                     renderPreview([]);
@@ -347,7 +402,14 @@
             });
         }
 
-        if (importBtn) {
+        if (updateDuplicates) {
+            updateDuplicates.addEventListener('change', () => {
+                if (!parsedEntries.length) return;
+                const actionable = parsedEntries.length > 0 && (updateDuplicates.checked || parsedEntries.length > existingDuplicates);
+                importBtn.disabled = !actionable;
+            });
+        }
+if (importBtn) {
             importBtn.addEventListener('click', async () => {
                 if (!parsedEntries.length) return;
                 importBtn.disabled = true;
@@ -356,10 +418,18 @@
                     const existingMap = new Map(tenants.map(t => [t.ic, t]));
                     let added = 0;
                     let duplicates = 0;
+                    let updatedCount = 0;
+                    const updateExisting = updateDuplicates ? updateDuplicates.checked : false;
                     const updated = tenants.slice();
                     parsedEntries.forEach(entry => {
-                        if (existingMap.has(entry.ic)) {
+                        const existing = existingMap.get(entry.ic);
+                        if (existing) {
                             duplicates += 1;
+                            if (updateExisting) {
+                                existing.name = entry.name || existing.name;
+                                if (entry.notes) existing.notes = entry.notes;
+                                updatedCount += 1;
+                            }
                             return;
                         }
                         updated.push({
@@ -379,10 +449,10 @@
                         added += 1;
                     });
                     await writeRTDB('tenants', updated);
-                    if (added > 0) {
-                        await logActivity('add', `Imported ${added} teachers (CSV)`);
+                    if (added > 0 || updatedCount > 0) {
+                        await logActivity('add', `Imported ${added} teachers (CSV). Updated ${updatedCount} existing.`);
                     }
-                    showMsg(`Imported ${added} teachers. Duplicates skipped: ${duplicates}.`);
+                    showMsg(`Imported ${added} teachers. Updated existing: ${updatedCount}. Duplicates skipped: ${duplicates}.`);
                 } catch (err) {
                     console.warn('CSV import failed', err);
                     showMsg('Failed to import CSV.', true);
